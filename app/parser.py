@@ -1,4 +1,11 @@
-"""Use Claude to extract structured ticket data from a forwarded email."""
+"""Use Claude to extract ticket info from a forwarded email.
+
+Returns one of:
+  {"email_type": "purchase", "artist": ..., "event_date": ..., "total_amount": ...,
+   "currency": ..., "tickets": [{seat_number, notes}, ...]}
+  {"email_type": "sale",     ...same shape...}
+  {"email_type": "other"}
+"""
 import json
 import logging
 import os
@@ -10,38 +17,63 @@ log = logging.getLogger(__name__)
 EXTRACTION_SCHEMA = {
     "type": "object",
     "properties": {
-        "is_ticket": {
-            "type": "boolean",
-            "description": "True ONLY if this is a real ticket booking confirmation, transfer, or resale notification.",
+        "email_type": {
+            "type": "string",
+            "enum": ["purchase", "sale", "other"],
+            "description": (
+                "'purchase' = booking confirmation / ticket transfer received "
+                "(Ticketmaster, AXS, See Tickets, Eventim, DICE, etc.). "
+                "'sale' = the recipient's tickets were sold/resold (StubHub, "
+                "Twickets, viagogo, etc.). 'other' = anything else."
+            ),
         },
         "artist": {"type": ["string", "null"], "description": "Performer, band, team, or event name."},
-        "location": {"type": ["string", "null"], "description": "Venue name and city, e.g. 'O2 Arena, London'."},
-        "notes": {
-            "type": ["string", "null"],
-            "description": "Section, ticket type, quantity, or other relevant details.",
+        "location": {"type": ["string", "null"], "description": "Venue name and city."},
+        "event_date": {"type": ["string", "null"], "description": "ISO YYYY-MM-DD. Null if not stated."},
+        "total_amount": {
+            "type": ["number", "null"],
+            "description": "TOTAL transaction amount as a number, not per-ticket. Null for free transfers.",
         },
-        "seat_number": {
-            "type": ["string", "null"],
-            "description": "Seat info, e.g. 'Block 102 Row K Seat 12' or 'Standing'.",
-        },
-        "event_date": {
-            "type": ["string", "null"],
-            "description": "Event date in ISO 8601 (YYYY-MM-DD). Null if not stated.",
-        },
-        "price_amount": {"type": ["number", "null"], "description": "Total price paid as a number."},
-        "price_currency": {
-            "type": ["string", "null"],
-            "description": "ISO currency code: GBP or USD.",
+        "currency": {"type": ["string", "null"], "description": "ISO code: GBP or USD."},
+        "tickets": {
+            "type": "array",
+            "description": (
+                "One entry per INDIVIDUAL ticket / seat. If 4 seats are listed, "
+                "output 4 entries. If 'tickets' is empty, the array should be []."
+            ),
+            "items": {
+                "type": "object",
+                "properties": {
+                    "seat_number": {
+                        "type": ["string", "null"],
+                        "description": "Seat info for this single ticket, e.g. 'Block 102 Row K Seat 12' or 'Standing'.",
+                    },
+                    "notes": {
+                        "type": ["string", "null"],
+                        "description": "Section, ticket type, or other detail for this single ticket.",
+                    },
+                },
+            },
         },
     },
-    "required": ["is_ticket"],
+    "required": ["email_type"],
 }
 
-PROMPT = """You extract structured ticket info from a forwarded email.
+PROMPT = """You extract structured info from a forwarded email about event tickets.
 
-Common senders: Ticketmaster, AXS, See Tickets, Eventim, Songkick, DICE, StubHub, viagogo, Twickets.
+Step 1 — Decide email_type:
+  "purchase" = recipient BOUGHT tickets (booking confirmation, ticket transfer received, receipt from Ticketmaster, AXS, See Tickets, Eventim, DICE, Songkick, etc.)
+  "sale"     = recipient's tickets were SOLD/resold (notification from StubHub, Twickets, viagogo, Vivid Seats, etc.)
+  "other"    = anything else (marketing, newsletter, account notification, password reset, etc.) -> tickets: []
 
-If the email is NOT a real ticket booking, transfer, or resale, set is_ticket to false and leave other fields null.
+Step 2 — Extract event info: artist, location, event_date (YYYY-MM-DD), total_amount (entire transaction, NOT per-ticket), currency.
+
+Step 3 — Extract the tickets array:
+  Output one entry for EACH individual ticket.
+  - 4 specific seats listed -> 4 entries, one per seat.
+  - "4 x General Admission" with no seats -> 4 entries with seat_number = "General Admission".
+  - 1 ticket -> 1 entry.
+  - "other" email -> empty array [].
 
 Output ONLY valid JSON matching this schema (no prose, no markdown fences):
 {schema}
@@ -62,35 +94,32 @@ def _strip_fences(s: str) -> str:
         if s.startswith("json"):
             s = s[4:]
         s = s.strip()
-        # If the model put a closing fence, drop it
         if s.endswith("```"):
             s = s[:-3].strip()
     return s
 
 
-def extract_ticket(subject: str, body: str) -> dict | None:
-    """Returns extracted fields, or None if the email isn't a ticket."""
+def extract_email(subject: str, body: str) -> dict | None:
+    """Return the parsed dict, or None on error."""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         log.error("ANTHROPIC_API_KEY not set")
         return None
 
     client = Anthropic(api_key=api_key)
-    body = (body or "")[:20000]  # cap to keep cost low
+    body = (body or "")[:20000]
 
     response = client.messages.create(
         model="claude-haiku-4-5",
-        max_tokens=1024,
-        messages=[
-            {
-                "role": "user",
-                "content": PROMPT.format(
-                    schema=json.dumps(EXTRACTION_SCHEMA, indent=2),
-                    subject=subject or "(no subject)",
-                    body=body,
-                ),
-            }
-        ],
+        max_tokens=2048,
+        messages=[{
+            "role": "user",
+            "content": PROMPT.format(
+                schema=json.dumps(EXTRACTION_SCHEMA, indent=2),
+                subject=subject or "(no subject)",
+                body=body,
+            ),
+        }],
     )
 
     text = _strip_fences(response.content[0].text)
@@ -100,7 +129,10 @@ def extract_ticket(subject: str, body: str) -> dict | None:
         log.warning(f"Parser returned non-JSON: {text[:300]}")
         return None
 
-    if not data.get("is_ticket"):
-        return None
+    # Normalise: always have tickets as a list
+    if "tickets" not in data or data["tickets"] is None:
+        data["tickets"] = []
+    if data.get("currency"):
+        data["currency"] = data["currency"].upper()
 
     return data

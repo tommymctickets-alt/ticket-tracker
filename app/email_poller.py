@@ -1,4 +1,4 @@
-"""Poll a Gmail account via IMAP for new ticket emails."""
+"""Poll a Gmail inbox via IMAP and process each new email."""
 import email
 import imaplib
 import logging
@@ -7,8 +7,9 @@ import re
 from email.header import decode_header
 
 from app.database import SessionLocal
+from app.matcher import apply_sale
 from app.models import ProcessedEmail, Ticket
-from app.parser import extract_ticket
+from app.parser import extract_email
 
 log = logging.getLogger(__name__)
 
@@ -41,9 +42,7 @@ def _decode_payload(part):
 
 
 def _get_body(msg) -> str:
-    """Return a plaintext-ish body of an email.Message."""
     if msg.is_multipart():
-        # Prefer text/plain
         for part in msg.walk():
             if part.get_content_type() == "text/plain" and "attachment" not in str(
                 part.get("Content-Disposition", "")
@@ -51,7 +50,6 @@ def _get_body(msg) -> str:
                 text = _decode_payload(part)
                 if text.strip():
                     return text
-        # Fallback: strip HTML
         for part in msg.walk():
             if part.get_content_type() == "text/html":
                 html = _decode_payload(part)
@@ -60,8 +58,45 @@ def _get_body(msg) -> str:
     return _decode_payload(msg)
 
 
+def _create_purchase(db, extracted: dict, message_id: str, subject: str) -> int:
+    """Create one Ticket row per individual ticket in the purchase email."""
+    artist = extracted.get("artist") or "Unknown"
+    location = extracted.get("location")
+    event_date = extracted.get("event_date")
+    total = extracted.get("total_amount")
+    currency = (extracted.get("currency") or "GBP").upper()
+
+    items = extracted.get("tickets") or []
+    if not items:
+        # Unusual but possible — create a single row if there's enough info to be useful
+        items = [{"seat_number": None, "notes": None}]
+
+    per_ticket = round(total / len(items), 2) if total else None
+
+    for i, item in enumerate(items):
+        t = Ticket(
+            artist=artist,
+            location=location,
+            notes=item.get("notes"),
+            seat_number=item.get("seat_number"),
+            event_date=event_date,
+            status="bought",
+            price_bought_amount=per_ticket,
+            price_bought_currency=currency,
+            source_email_id=f"{message_id}-{i}",  # keep unique constraint happy
+            raw_email_subject=subject,
+        )
+        db.add(t)
+
+    log.info(
+        f"  -> created {len(items)} ticket(s) for {artist!r} "
+        f"({currency} {per_ticket} each)"
+    )
+    return len(items)
+
+
 def poll_inbox() -> int:
-    """Check inbox for unread emails, parse them, insert tickets. Returns count of tickets created."""
+    """Check inbox for new emails; return the number of *new tickets created*."""
     host = os.getenv("IMAP_HOST", "imap.gmail.com")
     user = os.getenv("IMAP_USER")
     password = os.getenv("IMAP_PASSWORD")
@@ -95,43 +130,32 @@ def poll_inbox() -> int:
                 msg = email.message_from_bytes(raw)
 
                 message_id = msg.get("Message-ID") or f"local-{msg_id.decode()}"
-
                 if db.query(ProcessedEmail).filter_by(message_id=message_id).first():
                     continue
 
                 subject = _decode_header(msg.get("Subject", ""))
                 body = _get_body(msg)
-
                 log.info(f"Parsing: {subject[:80]}")
+
                 try:
-                    extracted = extract_ticket(subject, body)
+                    extracted = extract_email(subject, body)
                 except Exception as e:
                     log.exception(f"Parser error: {e}")
                     extracted = None
 
-                ticket_id = None
-                if extracted:
-                    ticket = Ticket(
-                        artist=extracted.get("artist") or "Unknown",
-                        location=extracted.get("location"),
-                        notes=extracted.get("notes"),
-                        seat_number=extracted.get("seat_number"),
-                        event_date=extracted.get("event_date"),
-                        status="bought",
-                        price_bought_amount=extracted.get("price_amount"),
-                        price_bought_currency=(extracted.get("price_currency") or "GBP").upper(),
-                        source_email_id=message_id,
-                        raw_email_subject=subject,
-                    )
-                    db.add(ticket)
-                    db.flush()
-                    ticket_id = ticket.id
-                    log.info(f"  -> ticket {ticket_id}: {ticket.artist}")
-                    created += 1
+                if not extracted:
+                    log.info("  -> couldn't parse, skipping")
+                elif extracted.get("email_type") == "purchase":
+                    n = _create_purchase(db, extracted, message_id, subject)
+                    created += n
+                elif extracted.get("email_type") == "sale":
+                    n = apply_sale(db, extracted)
+                    if n == 0:
+                        log.info("  -> sale email, but no matching tickets found")
                 else:
                     log.info("  -> not a ticket email")
 
-                db.add(ProcessedEmail(message_id=message_id, ticket_id=ticket_id))
+                db.add(ProcessedEmail(message_id=message_id))
                 db.commit()
         finally:
             db.close()
