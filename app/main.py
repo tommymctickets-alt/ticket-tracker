@@ -148,20 +148,89 @@ def _ticket_to_view(t: Ticket) -> dict:
     }
 
 
+STATUS_ORDER = ["bought", "listed", "sold", "used", "refunded"]
+
+
+def _group_stats(tickets) -> dict:
+    """Per-group summary in GBP."""
+    from app.currency import convert_to_gbp
+    invested = sum(
+        (convert_to_gbp(t.price_bought_amount, t.price_bought_currency) or 0)
+        for t in tickets
+    )
+    earned = sum(
+        (convert_to_gbp(t.price_sold_amount, t.price_sold_currency) or 0)
+        for t in tickets
+    )
+    profit = sum(
+        (compute_profit_gbp(
+            t.price_bought_amount, t.price_bought_currency,
+            t.price_sold_amount, t.price_sold_currency,
+        ) or 0)
+        for t in tickets
+    )
+    return {
+        "invested_gbp": round(invested, 2),
+        "earned_gbp": round(earned, 2),
+        "profit_gbp": round(profit, 2),
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(
     request: Request,
     db: Session = Depends(get_db),
     _user: dict = Depends(require_user),
+    status: str = "",
 ):
-    tickets = (
+    all_tickets = (
         db.query(Ticket)
         .order_by(Ticket.event_date.desc().nullslast(), Ticket.id.desc())
         .all()
     )
-    rows = [_ticket_to_view(t) for t in tickets]
-    total_profit = round(sum((r["profit_gbp"] or 0) for r in rows), 2)
-    return render("index.html", request, tickets=rows, total_profit=total_profit)
+
+    # Counts per status (for tab badges) — over ALL tickets, not just visible
+    counts = {s: 0 for s in STATUS_ORDER}
+    for t in all_tickets:
+        if t.status in counts:
+            counts[t.status] += 1
+
+    # Decide which statuses to render
+    if status in STATUS_ORDER:
+        visible_statuses = [status]
+    else:
+        status = ""  # normalise for tab highlight
+        visible_statuses = STATUS_ORDER
+
+    groups = []
+    for s in visible_statuses:
+        in_group = [t for t in all_tickets if t.status == s]
+        groups.append({
+            "status": s,
+            "tickets": [_ticket_to_view(t) for t in in_group],
+            "count": len(in_group),
+            **_group_stats(in_group),
+        })
+
+    # Top-line summary across all tickets (regardless of filter)
+    summary = {
+        "total_tickets": len(all_tickets),
+        "outstanding_gbp": _group_stats(
+            [t for t in all_tickets if t.status in ("bought", "listed")]
+        )["invested_gbp"],
+        "realized_profit_gbp": _group_stats(
+            [t for t in all_tickets if t.status == "sold"]
+        )["profit_gbp"],
+    }
+
+    return render(
+        "index.html", request,
+        groups=groups,
+        counts=counts,
+        current_filter=status,
+        summary=summary,
+        status_order=STATUS_ORDER,
+    )
 
 
 @app.get("/tickets/new", response_class=HTMLResponse)

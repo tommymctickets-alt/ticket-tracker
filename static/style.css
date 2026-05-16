@@ -139,6 +139,93 @@ td.actions a:hover { text-decoration: underline; }
 }
 .empty a { color: var(--accent); }
 
+/* Filter tabs */
+.tabs {
+    display: flex;
+    gap: 0.15rem;
+    margin: 0 0 1.5rem;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.tab {
+    padding: 0.65rem 1rem;
+    text-decoration: none;
+    color: var(--muted);
+    font-size: 0.92rem;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    transition: color 0.15s, border-color 0.15s;
+}
+.tab:hover { color: var(--text); }
+.tab.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+}
+.tab-count {
+    background: var(--border);
+    color: var(--muted);
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.5;
+}
+.tab.active .tab-count {
+    background: var(--accent);
+    color: white;
+}
+
+/* Status grouping */
+.status-group {
+    margin-bottom: 2.5rem;
+}
+.group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.7rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0 0.25rem;
+}
+.group-header h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    text-transform: capitalize;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--text);
+}
+.group-stats {
+    display: flex;
+    gap: 1.25rem;
+    color: var(--muted);
+    font-size: 0.88rem;
+    flex-wrap: wrap;
+}
+
+/* Status colored dot */
+.status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+.status-dot.status-bought { background: #0a4abf; }
+.status-dot.status-listed { background: #8a6300; }
+.status-dot.status-sold { background: #155724; }
+.status-dot.status-used { background: #666; }
+.status-dot.status-refunded { background: #a3201a; }
+
 /* Form */
 .ticket-form {
     background: var(--surface);
