@@ -528,6 +528,61 @@ tr.row-pending:hover td { background: #fff8e6; }
     border-color: #6b21a8;
 }
 
+/* Paid-by pills — distinct color per person */
+.cell-filter.paid-by { font-weight: 500; }
+.cell-filter.paid-daz {
+    background: #d4f1f0;
+    color: #0d7377;
+}
+.cell-filter.paid-daz.active {
+    background: #0d7377;
+    color: white;
+    border-color: #0d7377;
+}
+.cell-filter.paid-billy {
+    background: #ffe5cc;
+    color: #b35900;
+}
+.cell-filter.paid-billy.active {
+    background: #b35900;
+    color: white;
+    border-color: #b35900;
+}
+
+/* Segmented control for "Paid by" toggle in edit form */
+.segmented {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 2px;
+    width: fit-content;
+}
+.segmented input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.segmented label {
+    padding: 0.4rem 1rem;
+    cursor: pointer;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    color: var(--muted) !important;
+    transition: background 0.15s, color 0.15s;
+    display: inline-block !important;
+    margin: 0 !important;
+    flex-direction: row !important;
+    gap: 0 !important;
+}
+.segmented label:hover { color: var(--text) !important; }
+.segmented input:checked + label {
+    background: var(--accent);
+    color: white !important;
+    font-weight: 500;
+}
+
 /* Make headers narrower since they have more columns now */
 table.tickets th { padding: 0.65rem 0.7rem; }
 table.tickets td { padding: 0.65rem 0.7rem; }

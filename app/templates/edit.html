@@ -49,6 +49,18 @@
                value="{{ ticket.ticket_type if ticket and ticket.ticket_type else '' }}">
     </label>
 
+    <label>Paid by
+        {% set current_paid = (ticket.paid_by if ticket and ticket.paid_by else '') %}
+        <div class="segmented">
+            <input type="radio" name="paid_by" id="paid_by_none" value="" {% if not current_paid %}checked{% endif %}>
+            <label for="paid_by_none">—</label>
+            <input type="radio" name="paid_by" id="paid_by_daz" value="daz" {% if current_paid == 'daz' %}checked{% endif %}>
+            <label for="paid_by_daz">Daz</label>
+            <input type="radio" name="paid_by" id="paid_by_billy" value="billy" {% if current_paid == 'billy' %}checked{% endif %}>
+            <label for="paid_by_billy">Billy</label>
+        </div>
+    </label>
+
     <fieldset>
         <legend>Bought for</legend>
         <input type="number" step="0.01" name="price_bought_amount" placeholder="Amount"

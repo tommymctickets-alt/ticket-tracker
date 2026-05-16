@@ -38,7 +38,7 @@
     {% endfor %}
 </nav>
 
-{% if active_platform or active_ticket_type %}
+{% if active_platform or active_ticket_type or active_paid_by %}
 <div class="filter-chips">
     <span class="filter-chips-label">Filtering by:</span>
     {% if active_platform %}
@@ -49,6 +49,11 @@
     {% if active_ticket_type %}
     <a href="{{ remove_filter_urls.ticket_type }}" class="filter-chip">
         Format: <strong>{{ active_ticket_type }}</strong> <span class="chip-x">×</span>
+    </a>
+    {% endif %}
+    {% if active_paid_by %}
+    <a href="{{ remove_filter_urls.paid_by }}" class="filter-chip">
+        Paid by: <strong>{{ active_paid_by|capitalize }}</strong> <span class="chip-x">×</span>
     </a>
     {% endif %}
 </div>
@@ -100,6 +105,7 @@
                     <th>{{ sort_header('Date', 'event_date') }}</th>
                     <th>{{ sort_header('Platform', 'purchase_platform') }}</th>
                     <th>{{ sort_header('Format', 'ticket_type') }}</th>
+                    <th>Paid by</th>
                     <th>{{ sort_header('Bought', 'price_bought_amount') }}</th>
                     <th>{{ sort_header('Sold', 'price_sold_amount') }}</th>
                     <th>Profit (GBP)</th>
@@ -130,6 +136,15 @@
                                class="cell-filter source-type {% if active_ticket_type == t.ticket_type %}active{% endif %}"
                                title="{% if active_ticket_type == t.ticket_type %}Clear filter{% else %}Filter to {{ t.ticket_type }}{% endif %}">
                                 {{ t.ticket_type }}
+                            </a>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if t.paid_by %}
+                            <a href="{{ cell_filter_url('paid_by', t.paid_by) }}"
+                               class="cell-filter paid-by paid-{{ t.paid_by }} {% if active_paid_by == t.paid_by %}active{% endif %}"
+                               title="{% if active_paid_by == t.paid_by %}Clear filter{% else %}Filter to {{ t.paid_by|capitalize }}{% endif %}">
+                                {{ t.paid_by|capitalize }}
                             </a>
                         {% else %}—{% endif %}
                     </td>
@@ -253,6 +268,7 @@
                 {% if t.seat_number %}<dt>Seat</dt><dd>{{ t.seat_number }}</dd>{% endif %}
                 {% if t.purchase_platform %}<dt>Bought on</dt><dd>{{ t.purchase_platform }}</dd>{% endif %}
                 {% if t.ticket_type %}<dt>Format</dt><dd>{{ t.ticket_type }}</dd>{% endif %}
+                {% if t.paid_by %}<dt>Paid by</dt><dd>{{ t.paid_by|capitalize }}</dd>{% endif %}
                 {% if t.price_sold_amount is not none %}<dt>Sold for</dt><dd>{{ t.price_sold_currency }} {{ '%.2f' % t.price_sold_amount }}</dd>{% endif %}
             </dl>
         </section>

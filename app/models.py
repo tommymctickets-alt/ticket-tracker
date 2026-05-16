@@ -25,6 +25,8 @@ class Ticket(Base):
     purchase_platform = Column(String, nullable=True)
     # Format of the ticket (mobile, pdf, paper, e-ticket, will call, etc.)
     ticket_type = Column(String, nullable=True)
+    # Who paid for this ticket
+    paid_by = Column(String, nullable=True)
 
     # Sale & delivery info (populated when a sale email is processed)
     buyer_name = Column(String, nullable=True)

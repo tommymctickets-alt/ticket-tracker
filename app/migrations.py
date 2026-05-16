@@ -19,6 +19,7 @@ NEW_TICKET_COLUMNS = [
     ("delivered", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("purchase_platform", "VARCHAR"),
     ("ticket_type", "VARCHAR"),
+    ("paid_by", "VARCHAR"),
 ]
 
 

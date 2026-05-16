@@ -156,6 +156,7 @@ def _ticket_to_view(t: Ticket) -> dict:
         "delivered": bool(t.delivered),
         "purchase_platform": t.purchase_platform,
         "ticket_type": t.ticket_type,
+        "paid_by": t.paid_by,
     }
 
 
@@ -225,6 +226,7 @@ def index(
     pending_delivery: int = 0,
     platform: str = "",
     ticket_type: str = "",
+    paid_by: str = "",
     sort: str = "event_date",
     order: str = "desc",
 ):
@@ -237,12 +239,14 @@ def index(
     sort_col = SORT_COLUMNS[sort]
     sort_expr = sort_col.desc().nullslast() if order == "desc" else sort_col.asc().nullsfirst()
 
-    # Apply column filters (platform / ticket_type) — these affect all visible groups
+    # Apply column filters
     q = db.query(Ticket)
     if platform:
         q = q.filter(Ticket.purchase_platform == platform.lower())
     if ticket_type:
         q = q.filter(Ticket.ticket_type == ticket_type.lower())
+    if paid_by:
+        q = q.filter(Ticket.paid_by == paid_by.lower())
     q = q.order_by(sort_expr, Ticket.id.desc())
     all_tickets = q.all()
 
@@ -303,7 +307,7 @@ def index(
     # Build URLs (in Python; templates just use them)
     current_params = {
         "status": status, "pending_delivery": pending_delivery,
-        "platform": platform, "ticket_type": ticket_type,
+        "platform": platform, "ticket_type": ticket_type, "paid_by": paid_by,
         "sort": sort, "order": order,
     }
 
@@ -326,13 +330,13 @@ def index(
     remove_filter_urls = {
         "platform": _filter_url(current_params, platform=None),
         "ticket_type": _filter_url(current_params, ticket_type=None),
+        "paid_by": _filter_url(current_params, paid_by=None),
     }
 
     def _cell_filter_url(field, value):
         if not value:
             return None
-        # Toggle: clicking the same value removes the filter
-        current_value = platform if field == "platform" else ticket_type
+        current_value = {"platform": platform, "ticket_type": ticket_type, "paid_by": paid_by}.get(field, "")
         if current_value == value:
             return _filter_url(current_params, **{field: None})
         return _filter_url(current_params, **{field: value})
@@ -351,6 +355,7 @@ def index(
         tab_urls=tab_urls,
         active_platform=platform,
         active_ticket_type=ticket_type,
+        active_paid_by=paid_by,
         remove_filter_urls=remove_filter_urls,
         cell_filter_url=_cell_filter_url,
     )
@@ -401,6 +406,7 @@ def create_or_update_ticket(
     price_sold_currency: str = Form("GBP"),
     purchase_platform: str = Form(""),
     ticket_type: str = Form(""),
+    paid_by: str = Form(""),
     buyer_name: str = Form(""),
     buyer_email: str = Form(""),
     buyer_phone: str = Form(""),
@@ -431,6 +437,7 @@ def create_or_update_ticket(
     t.price_sold_currency = price_sold_currency
     t.purchase_platform = purchase_platform.strip().lower() or None
     t.ticket_type = ticket_type.strip().lower() or None
+    t.paid_by = paid_by.strip().lower() or None
     t.buyer_name = buyer_name.strip() or None
     t.buyer_email = buyer_email.strip() or None
     t.buyer_phone = buyer_phone.strip() or None
