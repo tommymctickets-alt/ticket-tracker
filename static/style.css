@@ -548,6 +548,50 @@ tr.row-pending:hover td { background: #fff8e6; }
     color: white;
     border-color: #b35900;
 }
+.cell-filter.paid-joint {
+    background: #fce4ec;
+    color: #c2185b;
+}
+.cell-filter.paid-joint.active {
+    background: #c2185b;
+    color: white;
+    border-color: #c2185b;
+}
+
+/* Second tab row for "Paid by" — slightly tinted background to distinguish from status row */
+.tabs.tabs-paid-by {
+    margin-top: -0.5rem;
+    margin-bottom: 1.5rem;
+    background: #fafafa;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.15rem 0.5rem;
+    overflow-x: auto;
+}
+.tab.tab-paid-daz.active {
+    color: #0d7377;
+    border-bottom-color: #0d7377;
+}
+.tab.tab-paid-daz.active .tab-count {
+    background: #0d7377;
+    color: white;
+}
+.tab.tab-paid-billy.active {
+    color: #b35900;
+    border-bottom-color: #b35900;
+}
+.tab.tab-paid-billy.active .tab-count {
+    background: #b35900;
+    color: white;
+}
+.tab.tab-paid-joint.active {
+    color: #c2185b;
+    border-bottom-color: #c2185b;
+}
+.tab.tab-paid-joint.active .tab-count {
+    background: #c2185b;
+    color: white;
+}
 
 /* Segmented control for "Paid by" toggle in edit form */
 .segmented {

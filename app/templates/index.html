@@ -24,7 +24,7 @@
 
 <nav class="tabs">
     <a href="{{ tab_urls.all }}" class="tab {% if not current_filter and not pending_view %}active{% endif %}">
-        All <span class="tab-count">{{ summary.total_tickets }}</span>
+        All <span class="tab-count">{{ status_all_count }}</span>
     </a>
     {% if 'pending_delivery' in tab_urls %}
         <a href="{{ tab_urls.pending_delivery }}" class="tab tab-pending {% if pending_view %}active{% endif %}">
@@ -36,6 +36,21 @@
             {{ s|capitalize }} <span class="tab-count">{{ counts[s] }}</span>
         </a>
     {% endfor %}
+</nav>
+
+<nav class="tabs tabs-paid-by">
+    <a href="{{ paid_by_tab_urls.all }}" class="tab {% if not active_paid_by %}active{% endif %}">
+        All <span class="tab-count">{{ paid_by_all_count }}</span>
+    </a>
+    <a href="{{ paid_by_tab_urls.daz }}" class="tab tab-paid-daz {% if active_paid_by == 'daz' %}active{% endif %}">
+        Daz <span class="tab-count">{{ paid_by_counts.daz }}</span>
+    </a>
+    <a href="{{ paid_by_tab_urls.billy }}" class="tab tab-paid-billy {% if active_paid_by == 'billy' %}active{% endif %}">
+        Billy <span class="tab-count">{{ paid_by_counts.billy }}</span>
+    </a>
+    <a href="{{ paid_by_tab_urls.joint }}" class="tab tab-paid-joint {% if active_paid_by == 'joint' %}active{% endif %}">
+        Joint <span class="tab-count">{{ paid_by_counts.joint }}</span>
+    </a>
 </nav>
 
 {% if active_platform or active_ticket_type or active_paid_by %}

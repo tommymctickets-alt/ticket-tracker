@@ -239,24 +239,48 @@ def index(
     sort_col = SORT_COLUMNS[sort]
     sort_expr = sort_col.desc().nullslast() if order == "desc" else sort_col.asc().nullsfirst()
 
-    # Apply column filters
-    q = db.query(Ticket)
+    # Apply column filters in stages so we can compute "what-if" counts for each tab row.
+    # Stage 1: platform + type filters (always applied)
+    q_base = db.query(Ticket)
     if platform:
-        q = q.filter(Ticket.purchase_platform == platform.lower())
+        q_base = q_base.filter(Ticket.purchase_platform == platform.lower())
     if ticket_type:
-        q = q.filter(Ticket.ticket_type == ticket_type.lower())
-    if paid_by:
-        q = q.filter(Ticket.paid_by == paid_by.lower())
-    q = q.order_by(sort_expr, Ticket.id.desc())
-    all_tickets = q.all()
+        q_base = q_base.filter(Ticket.ticket_type == ticket_type.lower())
+    base_tickets = q_base.order_by(sort_expr, Ticket.id.desc()).all()
 
-    # Counts per status (reflect current platform/type filters)
+    # Stage 2a: + paid_by filter -> used for status tab counts (status filter NOT applied)
+    if paid_by:
+        paidby_filtered = [t for t in base_tickets if t.paid_by == paid_by.lower()]
+    else:
+        paidby_filtered = base_tickets
+
+    # Stage 2b: + status filter -> used for paid_by tab counts (paid_by filter NOT applied)
+    if status in STATUS_ORDER:
+        status_filtered = [t for t in base_tickets if t.status == status]
+    elif pending_delivery:
+        status_filtered = [t for t in base_tickets if t.status == "sold" and not t.delivered]
+    else:
+        status_filtered = base_tickets
+
+    # All visible tickets: both filters applied
+    all_tickets = paidby_filtered  # status filter is applied later when building groups
+
+    # Status counts (for status tab row): reflect paid_by + platform/type filters
     counts = {s: 0 for s in STATUS_ORDER}
-    for t in all_tickets:
+    for t in paidby_filtered:
         if t.status in counts:
             counts[t.status] += 1
+    status_all_count = len(paidby_filtered)
 
-    pending_count = sum(1 for t in all_tickets if t.status == "sold" and not t.delivered)
+    # Paid-by counts (for paid_by tab row): reflect status + platform/type filters
+    paid_by_counts = {
+        "daz": sum(1 for t in status_filtered if t.paid_by == "daz"),
+        "billy": sum(1 for t in status_filtered if t.paid_by == "billy"),
+        "joint": sum(1 for t in status_filtered if t.paid_by == "joint"),
+    }
+    paid_by_all_count = len(status_filtered)
+
+    pending_count = sum(1 for t in paidby_filtered if t.status == "sold" and not t.delivered)
 
     # Decide which groups to render
     if pending_delivery:
@@ -327,6 +351,13 @@ def index(
     for s in STATUS_ORDER:
         tab_urls[s] = _filter_url(current_params, status=s, pending_delivery=None)
 
+    paid_by_tab_urls = {
+        "all": _filter_url(current_params, paid_by=None),
+        "daz": _filter_url(current_params, paid_by="daz"),
+        "billy": _filter_url(current_params, paid_by="billy"),
+        "joint": _filter_url(current_params, paid_by="joint"),
+    }
+
     remove_filter_urls = {
         "platform": _filter_url(current_params, platform=None),
         "ticket_type": _filter_url(current_params, ticket_type=None),
@@ -345,6 +376,7 @@ def index(
         "index.html", request,
         groups=groups,
         counts=counts,
+        status_all_count=status_all_count,
         current_filter=status,
         pending_view=bool(pending_delivery),
         summary=summary,
@@ -353,6 +385,9 @@ def index(
         current_order=order,
         sort_urls=sort_urls,
         tab_urls=tab_urls,
+        paid_by_tab_urls=paid_by_tab_urls,
+        paid_by_counts=paid_by_counts,
+        paid_by_all_count=paid_by_all_count,
         active_platform=platform,
         active_ticket_type=ticket_type,
         active_paid_by=paid_by,
