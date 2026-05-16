@@ -487,6 +487,28 @@ def create_or_update_ticket(
     return RedirectResponse("/", status_code=303)
 
 
+@app.post("/tickets/{ticket_id}/paid_by")
+def set_paid_by(
+    ticket_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_admin),
+    value: str = Form(""),
+):
+    t = db.get(Ticket, ticket_id)
+    if not t:
+        raise HTTPException(404)
+    value = (value or "").strip().lower() or None
+    if value not in (None, "daz", "billy", "joint"):
+        raise HTTPException(400, "invalid value")
+    # Toggle: clicking the currently-active button clears it
+    t.paid_by = None if t.paid_by == value else value
+    db.commit()
+    # Preserve the page the user was on (with any active filters)
+    referer = request.headers.get("referer", "/")
+    return RedirectResponse(referer, status_code=303)
+
+
 @app.post("/tickets/{ticket_id}/deliver")
 def mark_delivered(
     ticket_id: int,

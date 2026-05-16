@@ -593,6 +593,63 @@ tr.row-pending:hover td { background: #fff8e6; }
     color: white;
 }
 
+/* Inline paid-by buttons in the first table column */
+.paid-col {
+    width: 100px;
+    min-width: 100px;
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+}
+.paid-buttons {
+    display: inline-flex;
+    gap: 3px;
+    margin: 0;
+    padding: 0;
+}
+.paid-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.78rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    padding: 0;
+    transition: all 0.15s;
+}
+.paid-btn:hover {
+    border-color: var(--text);
+    color: var(--text);
+    transform: translateY(-1px);
+}
+.paid-btn.active.daz {
+    background: #0d7377;
+    color: white;
+    border-color: #0d7377;
+    box-shadow: 0 1px 3px rgba(13, 115, 119, 0.3);
+}
+.paid-btn.active.billy {
+    background: #b35900;
+    color: white;
+    border-color: #b35900;
+    box-shadow: 0 1px 3px rgba(179, 89, 0, 0.3);
+}
+.paid-btn.active.joint {
+    background: #c2185b;
+    color: white;
+    border-color: #c2185b;
+    box-shadow: 0 1px 3px rgba(194, 24, 91, 0.3);
+}
+/* For viewers (non-admin), the indicator is a static span — no hover effect */
+span.paid-btn { cursor: default; }
+span.paid-btn:hover { transform: none; }
+
 /* Segmented control for "Paid by" toggle in edit form */
 .segmented {
     display: inline-flex;
