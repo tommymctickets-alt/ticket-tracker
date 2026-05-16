@@ -65,6 +65,8 @@ def _create_purchase(db, extracted: dict, message_id: str, subject: str) -> int:
     event_date = extracted.get("event_date")
     total = extracted.get("total_amount")
     currency = (extracted.get("currency") or "GBP").upper()
+    purchase_platform = extracted.get("purchase_platform")
+    ticket_type = extracted.get("ticket_type")
 
     items = extracted.get("tickets") or []
     if not items:
@@ -83,6 +85,8 @@ def _create_purchase(db, extracted: dict, message_id: str, subject: str) -> int:
             status="bought",
             price_bought_amount=per_ticket,
             price_bought_currency=currency,
+            purchase_platform=purchase_platform,
+            ticket_type=ticket_type,
             source_email_id=f"{message_id}-{i}",  # keep unique constraint happy
             raw_email_subject=subject,
         )
@@ -90,7 +94,7 @@ def _create_purchase(db, extracted: dict, message_id: str, subject: str) -> int:
 
     log.info(
         f"  -> created {len(items)} ticket(s) for {artist!r} "
-        f"({currency} {per_ticket} each)"
+        f"({currency} {per_ticket} each, platform={purchase_platform!r}, type={ticket_type!r})"
     )
     return len(items)
 

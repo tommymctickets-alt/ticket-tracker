@@ -6,6 +6,8 @@
 <form method="post" action="/tickets" class="ticket-form">
     {% if ticket %}<input type="hidden" name="id" value="{{ ticket.id }}">{% endif %}
 
+    <h3 class="section-title first">Event</h3>
+
     <label>Artist *
         <input type="text" name="artist" required value="{{ ticket.artist if ticket else '' }}">
     </label>
@@ -35,6 +37,18 @@
         </select>
     </label>
 
+    <h3 class="section-title">Purchase</h3>
+
+    <label>Bought from (platform)
+        <input type="text" name="purchase_platform" placeholder="e.g. axs, ticketmaster, see tickets"
+               value="{{ ticket.purchase_platform if ticket and ticket.purchase_platform else '' }}">
+    </label>
+
+    <label>Ticket format
+        <input type="text" name="ticket_type" placeholder="e.g. mobile, pdf, paper, e-ticket"
+               value="{{ ticket.ticket_type if ticket and ticket.ticket_type else '' }}">
+    </label>
+
     <fieldset>
         <legend>Bought for</legend>
         <input type="number" step="0.01" name="price_bought_amount" placeholder="Amount"
@@ -45,6 +59,9 @@
             <option value="USD" {% if cb == 'USD' %}selected{% endif %}>USD</option>
         </select>
     </fieldset>
+
+    <h3 class="section-title">Sale &amp; Delivery</h3>
+    <p class="section-hint">Auto-populated from sale emails. Edit anything that's wrong or missing.</p>
 
     <fieldset>
         <legend>Sold for</legend>
@@ -57,15 +74,17 @@
         </select>
     </fieldset>
 
-    <h3 class="section-title">Sale &amp; Delivery</h3>
-    <p class="section-hint">Auto-populated from sale emails. Edit anything that's wrong or missing.</p>
-
     <label>Buyer name
         <input type="text" name="buyer_name" value="{{ ticket.buyer_name if ticket and ticket.buyer_name else '' }}">
     </label>
 
     <label>Buyer email
         <input type="email" name="buyer_email" value="{{ ticket.buyer_email if ticket and ticket.buyer_email else '' }}">
+    </label>
+
+    <label>Buyer phone
+        <input type="tel" name="buyer_phone" placeholder="+44 7..."
+               value="{{ ticket.buyer_phone if ticket and ticket.buyer_phone else '' }}">
     </label>
 
     <label>Delivery method
@@ -77,13 +96,13 @@
         <input type="date" name="delivery_deadline" value="{{ ticket.delivery_deadline if ticket and ticket.delivery_deadline else '' }}">
     </label>
 
-    <label>Order reference
-        <input type="text" name="order_reference" value="{{ ticket.order_reference if ticket and ticket.order_reference else '' }}">
-    </label>
-
-    <label>Sale platform
+    <label>Sold on (platform)
         <input type="text" name="sale_platform" placeholder="e.g. viagogo, stubhub, twickets"
                value="{{ ticket.sale_platform if ticket and ticket.sale_platform else '' }}">
+    </label>
+
+    <label>Order reference
+        <input type="text" name="order_reference" value="{{ ticket.order_reference if ticket and ticket.order_reference else '' }}">
     </label>
 
     <label>Delivery notes

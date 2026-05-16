@@ -10,12 +10,15 @@ log = logging.getLogger(__name__)
 NEW_TICKET_COLUMNS = [
     ("buyer_name", "VARCHAR"),
     ("buyer_email", "VARCHAR"),
+    ("buyer_phone", "VARCHAR"),
     ("delivery_method", "VARCHAR"),
     ("delivery_deadline", "VARCHAR"),
     ("order_reference", "VARCHAR"),
     ("sale_platform", "VARCHAR"),
     ("delivery_notes", "TEXT"),
     ("delivered", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("purchase_platform", "VARCHAR"),
+    ("ticket_type", "VARCHAR"),
 ]
 
 

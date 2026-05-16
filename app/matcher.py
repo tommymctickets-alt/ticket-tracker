@@ -87,6 +87,7 @@ def apply_sale(db: Session, sale: dict) -> int:
         # Only overwrite fields that the email actually populated
         if info.get("buyer_name"):       t.buyer_name = info["buyer_name"]
         if info.get("buyer_email"):      t.buyer_email = info["buyer_email"]
+        if info.get("buyer_phone"):      t.buyer_phone = info["buyer_phone"]
         if info.get("delivery_method"):  t.delivery_method = info["delivery_method"]
         if info.get("delivery_deadline"): t.delivery_deadline = info["delivery_deadline"]
         if info.get("order_reference"):  t.order_reference = info["order_reference"]

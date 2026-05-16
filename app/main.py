@@ -147,12 +147,15 @@ def _ticket_to_view(t: Ticket) -> dict:
         ),
         "buyer_name": t.buyer_name,
         "buyer_email": t.buyer_email,
+        "buyer_phone": t.buyer_phone,
         "delivery_method": t.delivery_method,
         "delivery_deadline": t.delivery_deadline,
         "order_reference": t.order_reference,
         "sale_platform": t.sale_platform,
         "delivery_notes": t.delivery_notes,
         "delivered": bool(t.delivered),
+        "purchase_platform": t.purchase_platform,
+        "ticket_type": t.ticket_type,
     }
 
 
@@ -305,8 +308,11 @@ def create_or_update_ticket(
     price_bought_currency: str = Form("GBP"),
     price_sold_amount: str = Form(""),
     price_sold_currency: str = Form("GBP"),
+    purchase_platform: str = Form(""),
+    ticket_type: str = Form(""),
     buyer_name: str = Form(""),
     buyer_email: str = Form(""),
+    buyer_phone: str = Form(""),
     delivery_method: str = Form(""),
     delivery_deadline: str = Form(""),
     order_reference: str = Form(""),
@@ -332,8 +338,11 @@ def create_or_update_ticket(
     t.price_bought_currency = price_bought_currency
     t.price_sold_amount = _to_float(price_sold_amount)
     t.price_sold_currency = price_sold_currency
+    t.purchase_platform = purchase_platform.strip().lower() or None
+    t.ticket_type = ticket_type.strip().lower() or None
     t.buyer_name = buyer_name.strip() or None
     t.buyer_email = buyer_email.strip() or None
+    t.buyer_phone = buyer_phone.strip() or None
     t.delivery_method = delivery_method.strip() or None
     t.delivery_deadline = delivery_deadline.strip() or None
     t.order_reference = order_reference.strip() or None

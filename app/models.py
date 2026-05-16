@@ -21,9 +21,15 @@ class Ticket(Base):
     price_sold_amount = Column(Float, nullable=True)
     price_sold_currency = Column(String, default="GBP")
 
+    # Where the ticket was originally bought (axs, ticketmaster, see tickets, etc.)
+    purchase_platform = Column(String, nullable=True)
+    # Format of the ticket (mobile, pdf, paper, e-ticket, will call, etc.)
+    ticket_type = Column(String, nullable=True)
+
     # Sale & delivery info (populated when a sale email is processed)
     buyer_name = Column(String, nullable=True)
     buyer_email = Column(String, nullable=True)
+    buyer_phone = Column(String, nullable=True)
     delivery_method = Column(String, nullable=True)
     delivery_deadline = Column(String, nullable=True)  # ISO YYYY-MM-DD
     order_reference = Column(String, nullable=True)

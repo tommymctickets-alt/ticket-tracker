@@ -35,6 +35,22 @@ EXTRACTION_SCHEMA = {
             "description": "TOTAL transaction amount as a number, not per-ticket. Null for free transfers.",
         },
         "currency": {"type": ["string", "null"], "description": "ISO code: GBP or USD."},
+        "purchase_platform": {
+            "type": ["string", "null"],
+            "description": (
+                "(Purchase emails) The platform/site where the ticket was bought, "
+                "based on the sender or branding: 'axs', 'ticketmaster', 'see tickets', "
+                "'eventim', 'dice', 'songkick', 'gigsandtours', etc. Lowercase."
+            ),
+        },
+        "ticket_type": {
+            "type": ["string", "null"],
+            "description": (
+                "Format of the ticket: 'mobile' (transferable via app), 'pdf' "
+                "(print-at-home), 'paper' (posted), 'e-ticket', 'will call', "
+                "'wristband', etc. Lowercase."
+            ),
+        },
         "tickets": {
             "type": "array",
             "description": (
@@ -61,6 +77,7 @@ EXTRACTION_SCHEMA = {
             "properties": {
                 "buyer_name": {"type": ["string", "null"], "description": "Name of the buyer if mentioned."},
                 "buyer_email": {"type": ["string", "null"], "description": "Buyer email if mentioned (for ticket transfer)."},
+                "buyer_phone": {"type": ["string", "null"], "description": "Buyer phone number if mentioned (often required for mobile transfers)."},
                 "delivery_method": {
                     "type": ["string", "null"],
                     "description": "How tickets must be delivered, e.g. 'Mobile transfer', 'Email PDF', 'Courier', 'Instant download'.",
@@ -87,15 +104,20 @@ Step 1 — Decide email_type:
 
 Step 2 — Extract event info: artist, location, event_date (YYYY-MM-DD), total_amount (entire transaction, NOT per-ticket), currency.
 
-Step 3 — Extract the tickets array:
+Step 3 — For PURCHASE emails, also identify:
+  - purchase_platform: lowercase platform name from the sender or branding (axs, ticketmaster, see tickets, eventim, dice, etc.)
+  - ticket_type: lowercase format word — 'mobile' / 'pdf' / 'paper' / 'e-ticket' / 'will call' / 'wristband'.
+    Clues: "Add to Wallet" / "in your app" => mobile. "Print at home" / "PDF attached" => pdf. "Mailed" / "Royal Mail" => paper.
+
+Step 4 — Extract the tickets array:
   Output one entry for EACH individual ticket.
   - 4 specific seats listed -> 4 entries, one per seat.
   - "4 x General Admission" with no seats -> 4 entries with seat_number = "General Admission".
   - 1 ticket -> 1 entry.
   - "other" email -> empty array [].
 
-Step 4 — For SALE emails ONLY, also populate sale_info with:
-  - buyer_name, buyer_email (the person receiving the tickets, if mentioned)
+Step 5 — For SALE emails ONLY, populate sale_info:
+  - buyer_name, buyer_email, buyer_phone (look hard — phone is often a long digit string near the name)
   - delivery_method (e.g. "Mobile transfer", "Email PDF", "Courier", "Instant download")
   - delivery_deadline (ISO date by which tickets must be sent)
   - order_reference (platform's order/transaction ID)

@@ -39,7 +39,7 @@
 </nav>
 
 {% set rendered = namespace(any=false) %}
-{% set all_sold = namespace(items=[]) %}
+{% set sold_for_modal = namespace(items=[]) %}
 {% for group in groups %}
     {% if group.count > 0 %}
     {% set rendered.any = true %}
@@ -73,7 +73,7 @@
                     <th>Artist</th>
                     <th>Location</th>
                     <th>Notes</th>
-                    <th>Seat</th>
+                    <th>Seat / Source</th>
                     <th>Date</th>
                     <th>Bought</th>
                     <th>Sold</th>
@@ -88,7 +88,15 @@
                     <td><strong>{{ t.artist }}</strong></td>
                     <td>{{ t.location or '—' }}</td>
                     <td>{{ t.notes or '—' }}</td>
-                    <td>{{ t.seat_number or '—' }}</td>
+                    <td class="seat-cell">
+                        <div>{{ t.seat_number or '—' }}</div>
+                        {% if t.purchase_platform or t.ticket_type %}
+                        <div class="source-line">
+                            {% if t.purchase_platform %}<span class="source-platform">{{ t.purchase_platform }}</span>{% endif %}
+                            {% if t.ticket_type %}<span class="source-type">{{ t.ticket_type }}</span>{% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
                     <td>{{ t.event_date or '—' }}</td>
                     <td>{% if t.price_bought_amount is not none %}{{ t.price_bought_currency }} {{ '%.2f' % t.price_bought_amount }}{% else %}—{% endif %}</td>
                     <td>{% if t.price_sold_amount is not none %}{{ t.price_sold_currency }} {{ '%.2f' % t.price_sold_amount }}{% else %}—{% endif %}</td>
@@ -96,18 +104,14 @@
 
                     {% if group.status == 'sold' %}
                     <td>
-                        {% set has_info = t.buyer_name or t.buyer_email or t.delivery_method or t.delivery_deadline or t.order_reference or t.sale_platform %}
-                        {% if has_info or t.delivered %}
-                            {% set _ = all_sold.items.append(t) %}
-                            <button type="button"
-                                    class="buyer-pill {% if t.delivered %}delivered{% else %}pending{% endif %}"
-                                    data-dialog="buyer-{{ t.id }}">
-                                {% if t.delivered %}✓{% else %}⏳{% endif %}
-                                {{ t.buyer_name or 'View details' }}
-                            </button>
-                        {% else %}
-                            <a href="/tickets/{{ t.id }}/edit" class="buyer-pill empty">+ Add buyer info</a>
-                        {% endif %}
+                        {# Always show the pill button for sold tickets — the modal handles empty state #}
+                        {% set _ = sold_for_modal.items.append(t) %}
+                        <button type="button"
+                                class="buyer-pill {% if t.delivered %}delivered{% else %}pending{% endif %}"
+                                data-dialog="buyer-{{ t.id }}">
+                            {% if t.delivered %}✓{% else %}⏳{% endif %}
+                            {{ t.buyer_name or 'View details' }}
+                        </button>
                     </td>
                     {% endif %}
 
@@ -144,8 +148,9 @@
 </p>
 {% endif %}
 
-{# Buyer details modals — one per sold ticket that has info #}
-{% for t in all_sold.items %}
+{# Buyer details modals — one per sold ticket #}
+{% for t in sold_for_modal.items %}
+{% set any_buyer_info = t.buyer_name or t.buyer_email or t.buyer_phone or t.delivery_method or t.delivery_deadline or t.order_reference or t.sale_platform or t.delivery_notes %}
 <dialog id="buyer-{{ t.id }}" class="buyer-dialog">
     <header class="dialog-header">
         <div>
@@ -162,35 +167,46 @@
     </header>
 
     <div class="dialog-body">
-        {% if t.buyer_email or t.buyer_name %}
-        <section class="dialog-section">
-            <h4>Contact</h4>
-            <dl>
-                {% if t.buyer_name %}<dt>Name</dt><dd>{{ t.buyer_name }}</dd>{% endif %}
-                {% if t.buyer_email %}<dt>Email</dt><dd><a href="mailto:{{ t.buyer_email }}">{{ t.buyer_email }}</a></dd>{% endif %}
-            </dl>
-        </section>
-        {% endif %}
+        {% if any_buyer_info %}
+            {% if t.buyer_name or t.buyer_email or t.buyer_phone %}
+            <section class="dialog-section">
+                <h4>Contact</h4>
+                <dl>
+                    {% if t.buyer_name %}<dt>Name</dt><dd>{{ t.buyer_name }}</dd>{% endif %}
+                    {% if t.buyer_email %}<dt>Email</dt><dd><a href="mailto:{{ t.buyer_email }}">{{ t.buyer_email }}</a></dd>{% endif %}
+                    {% if t.buyer_phone %}<dt>Phone</dt><dd><a href="tel:{{ t.buyer_phone }}">{{ t.buyer_phone }}</a></dd>{% endif %}
+                </dl>
+            </section>
+            {% endif %}
 
-        {% if t.delivery_method or t.delivery_deadline or t.delivery_notes %}
-        <section class="dialog-section">
-            <h4>Delivery</h4>
-            <dl>
-                {% if t.delivery_method %}<dt>Method</dt><dd>{{ t.delivery_method }}</dd>{% endif %}
-                {% if t.delivery_deadline %}<dt>Deadline</dt><dd>{{ t.delivery_deadline }}</dd>{% endif %}
-                {% if t.delivery_notes %}<dt>Notes</dt><dd>{{ t.delivery_notes }}</dd>{% endif %}
-            </dl>
-        </section>
-        {% endif %}
+            {% if t.delivery_method or t.delivery_deadline or t.delivery_notes %}
+            <section class="dialog-section">
+                <h4>Delivery</h4>
+                <dl>
+                    {% if t.delivery_method %}<dt>Method</dt><dd>{{ t.delivery_method }}</dd>{% endif %}
+                    {% if t.delivery_deadline %}<dt>Deadline</dt><dd>{{ t.delivery_deadline }}</dd>{% endif %}
+                    {% if t.delivery_notes %}<dt>Notes</dt><dd>{{ t.delivery_notes }}</dd>{% endif %}
+                </dl>
+            </section>
+            {% endif %}
 
-        {% if t.order_reference or t.sale_platform %}
-        <section class="dialog-section">
-            <h4>Order</h4>
-            <dl>
-                {% if t.sale_platform %}<dt>Platform</dt><dd>{{ t.sale_platform }}</dd>{% endif %}
-                {% if t.order_reference %}<dt>Reference</dt><dd><code>{{ t.order_reference }}</code></dd>{% endif %}
-            </dl>
-        </section>
+            {% if t.order_reference or t.sale_platform %}
+            <section class="dialog-section">
+                <h4>Order</h4>
+                <dl>
+                    {% if t.sale_platform %}<dt>Sold on</dt><dd>{{ t.sale_platform }}</dd>{% endif %}
+                    {% if t.order_reference %}<dt>Reference</dt><dd><code>{{ t.order_reference }}</code></dd>{% endif %}
+                </dl>
+            </section>
+            {% endif %}
+        {% else %}
+            <div class="dialog-empty">
+                <p><strong>No buyer info captured.</strong></p>
+                <p>This usually means the sale email didn't include it, or the ticket was sold before buyer tracking was added. You can add it manually.</p>
+                {% if user.role == 'admin' %}
+                <a href="/tickets/{{ t.id }}/edit" class="btn primary">Add buyer info</a>
+                {% endif %}
+            </div>
         {% endif %}
 
         <section class="dialog-section">
@@ -199,6 +215,8 @@
                 <dt>Event</dt><dd>{{ t.artist }}{% if t.event_date %} · {{ t.event_date }}{% endif %}</dd>
                 {% if t.location %}<dt>Venue</dt><dd>{{ t.location }}</dd>{% endif %}
                 {% if t.seat_number %}<dt>Seat</dt><dd>{{ t.seat_number }}</dd>{% endif %}
+                {% if t.purchase_platform %}<dt>Bought on</dt><dd>{{ t.purchase_platform }}</dd>{% endif %}
+                {% if t.ticket_type %}<dt>Format</dt><dd>{{ t.ticket_type }}</dd>{% endif %}
                 {% if t.price_sold_amount is not none %}<dt>Sold for</dt><dd>{{ t.price_sold_currency }} {{ '%.2f' % t.price_sold_amount }}</dd>{% endif %}
             </dl>
         </section>
@@ -223,15 +241,10 @@ document.addEventListener('click', function(e) {
     const btn = e.target.closest('[data-dialog]');
     if (!btn) return;
     const dlg = document.getElementById(btn.dataset.dialog);
-    if (dlg && typeof dlg.showModal === 'function') {
-        dlg.showModal();
-    }
+    if (dlg && typeof dlg.showModal === 'function') dlg.showModal();
 });
-// Close on click outside the dialog content
 document.querySelectorAll('dialog').forEach(d => {
-    d.addEventListener('click', e => {
-        if (e.target === d) d.close();
-    });
+    d.addEventListener('click', e => { if (e.target === d) d.close(); });
 });
 </script>
 
