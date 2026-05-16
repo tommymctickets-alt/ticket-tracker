@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="summary">
+    <span>Tickets: <strong>{{ tickets|length }}</strong></span>
+    <span>Total profit (GBP):
+        <strong class="{% if total_profit >= 0 %}pos{% else %}neg{% endif %}">
+            £{{ '%.2f' % total_profit }}
+        </strong>
+    </span>
+</div>
+
+{% if tickets %}
+<div class="table-wrap">
+<table class="tickets">
+    <thead>
+        <tr>
+            <th>Artist</th>
+            <th>Location</th>
+            <th>Notes</th>
+            <th>Seat</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Bought</th>
+            <th>Sold</th>
+            <th>Profit (GBP)</th>
+            {% if user.role == 'admin' %}<th></th>{% endif %}
+        </tr>
+    </thead>
+    <tbody>
+    {% for t in tickets %}
+        <tr>
+            <td><strong>{{ t.artist }}</strong></td>
+            <td>{{ t.location or '—' }}</td>
+            <td>{{ t.notes or '—' }}</td>
+            <td>{{ t.seat_number or '—' }}</td>
+            <td>{{ t.event_date or '—' }}</td>
+            <td><span class="status status-{{ t.status }}">{{ t.status }}</span></td>
+            <td>{% if t.price_bought_amount is not none %}{{ t.price_bought_currency }} {{ '%.2f' % t.price_bought_amount }}{% else %}—{% endif %}</td>
+            <td>{% if t.price_sold_amount is not none %}{{ t.price_sold_currency }} {{ '%.2f' % t.price_sold_amount }}{% else %}—{% endif %}</td>
+            <td>{% if t.profit_gbp is not none %}<span class="{% if t.profit_gbp >= 0 %}pos{% else %}neg{% endif %}">£{{ '%.2f' % t.profit_gbp }}</span>{% else %}—{% endif %}</td>
+            {% if user.role == 'admin' %}
+            <td class="actions">
+                <a href="/tickets/{{ t.id }}/edit">Edit</a>
+                <form method="post" action="/tickets/{{ t.id }}/delete" class="inline" onsubmit="return confirm('Delete this ticket?')">
+                    <button class="link-btn">Delete</button>
+                </form>
+            </td>
+            {% endif %}
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty">
+{% if user.role == 'admin' %}
+No tickets yet. <a href="/tickets/new">Add one manually</a> or forward a booking email to your inbox.
+{% else %}
+No tickets yet.
+{% endif %}
+</p>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Ticket Tracker{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1><a href="/">🎟️ Ticket Tracker</a></h1>
+        <nav>
+            {% if user %}
+                {% if user.role == 'admin' %}
+                    <a href="/tickets/new" class="btn primary">+ Add ticket</a>
+                    <form method="post" action="/poll" class="inline">
+                        <button class="btn">Poll inbox now</button>
+                    </form>
+                {% endif %}
+                <span class="user">{{ user.username }} <span class="badge">{{ user.role }}</span></span>
+                <form method="post" action="/logout" class="inline">
+                    <button class="btn ghost">Log out</button>
+                </form>
+            {% endif %}
+        </nav>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

@@ -1,0 +1,256 @@
+"""FastAPI app: web UI + login + API + background email poller."""
+import logging
+import os
+import secrets
+from contextlib import asynccontextmanager
+from datetime import datetime
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from starlette.middleware.sessions import SessionMiddleware
+
+from app.auth import (
+    Forbidden,
+    NeedsLogin,
+    authenticate,
+    current_user,
+    require_admin,
+    require_user,
+)
+from app.currency import compute_profit_gbp
+from app.database import get_db, init_db
+from app.email_poller import poll_inbox
+from app.models import Ticket
+
+load_dotenv()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+log = logging.getLogger(__name__)
+
+scheduler: AsyncIOScheduler | None = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global scheduler
+    init_db()
+    if os.getenv("IMAP_USER"):
+        interval = int(os.getenv("POLL_INTERVAL_MINUTES", "5"))
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(
+            poll_inbox,
+            "interval",
+            minutes=interval,
+            next_run_time=datetime.now(),
+        )
+        scheduler.start()
+        log.info(f"Email polling every {interval} minute(s)")
+    else:
+        log.info("IMAP not configured; running without inbox polling")
+    yield
+    if scheduler and scheduler.running:
+        scheduler.shutdown()
+
+
+app = FastAPI(lifespan=lifespan)
+
+# Cookie sessions
+secret_key = os.getenv("SECRET_KEY")
+if not secret_key:
+    secret_key = secrets.token_urlsafe(32)
+    log.warning("SECRET_KEY not set; generated an ephemeral one (sessions reset on restart)")
+app.add_middleware(SessionMiddleware, secret_key=secret_key, https_only=False, same_site="lax")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="app/templates")
+
+
+# ---- exception handlers redirect unauthenticated/forbidden requests ----
+
+@app.exception_handler(NeedsLogin)
+async def _needs_login(request: Request, _exc: NeedsLogin):
+    return RedirectResponse(f"/login?next={request.url.path}", status_code=303)
+
+
+@app.exception_handler(Forbidden)
+async def _forbidden(request: Request, _exc: Forbidden):
+    return RedirectResponse("/", status_code=303)
+
+
+def render(name: str, request: Request, **context):
+    return templates.TemplateResponse(
+        name,
+        {"request": request, "user": current_user(request), **context},
+    )
+
+
+# ---- auth routes ----
+
+@app.get("/login", response_class=HTMLResponse)
+def login_form(request: Request, next: str = "/", error: str = ""):
+    return render("login.html", request, next=next, error=error)
+
+
+@app.post("/login")
+def login_submit(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    next: str = Form("/"),
+):
+    user = authenticate(username.strip(), password)
+    if not user:
+        return RedirectResponse(
+            f"/login?next={next}&error=Invalid+username+or+password",
+            status_code=303,
+        )
+    request.session["user"] = user
+    # Only allow internal redirect targets
+    if not next.startswith("/"):
+        next = "/"
+    return RedirectResponse(next, status_code=303)
+
+
+@app.post("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/login", status_code=303)
+
+
+# ---- ticket views ----
+
+def _ticket_to_view(t: Ticket) -> dict:
+    return {
+        "id": t.id,
+        "artist": t.artist,
+        "location": t.location,
+        "notes": t.notes,
+        "seat_number": t.seat_number,
+        "event_date": t.event_date,
+        "status": t.status,
+        "price_bought_amount": t.price_bought_amount,
+        "price_bought_currency": t.price_bought_currency,
+        "price_sold_amount": t.price_sold_amount,
+        "price_sold_currency": t.price_sold_currency,
+        "profit_gbp": compute_profit_gbp(
+            t.price_bought_amount,
+            t.price_bought_currency,
+            t.price_sold_amount,
+            t.price_sold_currency,
+        ),
+    }
+
+
+@app.get("/", response_class=HTMLResponse)
+def index(
+    request: Request,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_user),
+):
+    tickets = (
+        db.query(Ticket)
+        .order_by(Ticket.event_date.desc().nullslast(), Ticket.id.desc())
+        .all()
+    )
+    rows = [_ticket_to_view(t) for t in tickets]
+    total_profit = round(sum((r["profit_gbp"] or 0) for r in rows), 2)
+    return render("index.html", request, tickets=rows, total_profit=total_profit)
+
+
+@app.get("/tickets/new", response_class=HTMLResponse)
+def new_ticket_form(request: Request, _user: dict = Depends(require_admin)):
+    return render("edit.html", request, ticket=None)
+
+
+@app.get("/tickets/{ticket_id}/edit", response_class=HTMLResponse)
+def edit_ticket_form(
+    ticket_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_admin),
+):
+    t = db.get(Ticket, ticket_id)
+    if not t:
+        raise HTTPException(404)
+    return render("edit.html", request, ticket=_ticket_to_view(t))
+
+
+def _to_float(s):
+    s = (s or "").strip()
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+@app.post("/tickets")
+def create_or_update_ticket(
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_admin),
+    id: str = Form(""),
+    artist: str = Form(...),
+    location: str = Form(""),
+    notes: str = Form(""),
+    seat_number: str = Form(""),
+    event_date: str = Form(""),
+    status: str = Form("bought"),
+    price_bought_amount: str = Form(""),
+    price_bought_currency: str = Form("GBP"),
+    price_sold_amount: str = Form(""),
+    price_sold_currency: str = Form("GBP"),
+):
+    if id:
+        t = db.get(Ticket, int(id))
+        if not t:
+            raise HTTPException(404)
+    else:
+        t = Ticket()
+        db.add(t)
+
+    t.artist = artist.strip()
+    t.location = location.strip() or None
+    t.notes = notes.strip() or None
+    t.seat_number = seat_number.strip() or None
+    t.event_date = event_date.strip() or None
+    t.status = status
+    t.price_bought_amount = _to_float(price_bought_amount)
+    t.price_bought_currency = price_bought_currency
+    t.price_sold_amount = _to_float(price_sold_amount)
+    t.price_sold_currency = price_sold_currency
+
+    db.commit()
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/tickets/{ticket_id}/delete")
+def delete_ticket(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_admin),
+):
+    t = db.get(Ticket, ticket_id)
+    if t:
+        db.delete(t)
+        db.commit()
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/poll")
+def trigger_poll(_user: dict = Depends(require_admin)):
+    poll_inbox()
+    return RedirectResponse("/", status_code=303)
+
+
+@app.get("/healthz")
+def healthz():
+    """Used by the host to check the app is alive."""
+    return {"ok": True}

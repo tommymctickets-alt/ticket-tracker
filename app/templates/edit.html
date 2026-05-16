@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>{% if ticket %}Edit ticket{% else %}New ticket{% endif %}</h2>
+
+<form method="post" action="/tickets" class="ticket-form">
+    {% if ticket %}<input type="hidden" name="id" value="{{ ticket.id }}">{% endif %}
+
+    <label>Artist *
+        <input type="text" name="artist" required value="{{ ticket.artist if ticket else '' }}">
+    </label>
+
+    <label>Location
+        <input type="text" name="location" value="{{ ticket.location if ticket and ticket.location else '' }}">
+    </label>
+
+    <label>Notes (section, ticket type, etc.)
+        <input type="text" name="notes" value="{{ ticket.notes if ticket and ticket.notes else '' }}">
+    </label>
+
+    <label>Seat number
+        <input type="text" name="seat_number" value="{{ ticket.seat_number if ticket and ticket.seat_number else '' }}">
+    </label>
+
+    <label>Event date
+        <input type="date" name="event_date" value="{{ ticket.event_date if ticket and ticket.event_date else '' }}">
+    </label>
+
+    <label>Status
+        <select name="status">
+            {% set current = ticket.status if ticket else 'bought' %}
+            {% for s in ['bought', 'listed', 'sold', 'used', 'refunded'] %}
+                <option value="{{ s }}" {% if s == current %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <fieldset>
+        <legend>Bought for</legend>
+        <input type="number" step="0.01" name="price_bought_amount" placeholder="Amount"
+               value="{{ ticket.price_bought_amount if ticket and ticket.price_bought_amount is not none else '' }}">
+        <select name="price_bought_currency">
+            {% set cb = ticket.price_bought_currency if ticket else 'GBP' %}
+            <option value="GBP" {% if cb == 'GBP' %}selected{% endif %}>GBP</option>
+            <option value="USD" {% if cb == 'USD' %}selected{% endif %}>USD</option>
+        </select>
+    </fieldset>
+
+    <fieldset>
+        <legend>Sold for</legend>
+        <input type="number" step="0.01" name="price_sold_amount" placeholder="Amount"
+               value="{{ ticket.price_sold_amount if ticket and ticket.price_sold_amount is not none else '' }}">
+        <select name="price_sold_currency">
+            {% set cs = ticket.price_sold_currency if ticket else 'GBP' %}
+            <option value="GBP" {% if cs == 'GBP' %}selected{% endif %}>GBP</option>
+            <option value="USD" {% if cs == 'USD' %}selected{% endif %}>USD</option>
+        </select>
+    </fieldset>
+
+    <div class="form-actions">
+        <button type="submit" class="btn primary">Save</button>
+        <a href="/" class="btn">Cancel</a>
+    </div>
+</form>
+
+{% endblock %}
