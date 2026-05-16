@@ -226,6 +226,121 @@ td.actions a:hover { text-decoration: underline; }
 .status-dot.status-used { background: #666; }
 .status-dot.status-refunded { background: #a3201a; }
 
+/* Action banner — appears at top when something needs attention */
+.action-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: linear-gradient(135deg, #fff4d1 0%, #ffefa1 100%);
+    border: 1px solid #e8c969;
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 1.25rem;
+    text-decoration: none;
+    color: #5c4a00;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.action-banner:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+.action-banner-icon { font-size: 1.4rem; }
+.action-banner strong { color: #1a1500; }
+.action-banner-arrow {
+    margin-left: auto;
+    font-size: 1.1rem;
+    color: #8a6300;
+}
+
+/* Pending delivery tab — extra emphasis */
+.tab.tab-pending { color: #8a6300; }
+.tab.tab-pending.active {
+    color: #5c4a00;
+    border-bottom-color: #d4a017;
+}
+.tab.tab-pending .tab-count {
+    background: #fff4d1;
+    color: #8a6300;
+}
+.tab.tab-pending.active .tab-count {
+    background: #d4a017;
+    color: white;
+}
+
+/* Buyer / delivery cell */
+.buyer-cell {
+    min-width: 180px;
+    line-height: 1.35;
+    white-space: normal !important;
+}
+.delivery-status {
+    display: inline-block;
+    font-size: 0.78rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-weight: 500;
+    margin-bottom: 0.3rem;
+}
+.delivery-status.pending { background: #fff4d1; color: #8a6300; }
+.delivery-status.delivered { background: #d4edda; color: #155724; }
+.muted-sm {
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+/* Highlight rows that need delivery action */
+tr.row-pending td { background: #fffbf0; }
+tr.row-pending:hover td { background: #fff8e6; }
+
+/* Quick "mark delivered" button */
+.btn-tiny {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+}
+.btn-tiny:hover { background: #f0f0f3; }
+.btn-tiny.primary {
+    background: #155724;
+    color: white;
+    border-color: #155724;
+}
+.btn-tiny.primary:hover { background: #0d3a18; }
+
+/* Section title inside the edit form */
+.section-title {
+    margin: 0.5rem 0 0;
+    font-size: 0.95rem;
+    color: var(--text);
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+.section-hint {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+.checkbox-label {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.95rem;
+    color: var(--text) !important;
+}
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+}
+
 /* Form */
 .ticket-form {
     background: var(--surface);

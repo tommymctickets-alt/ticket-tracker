@@ -60,7 +60,7 @@ def find_matching_tickets(db: Session, sale: dict) -> list[Ticket]:
 
 
 def apply_sale(db: Session, sale: dict) -> int:
-    """Mark matching tickets as sold and record the sale price. Returns count updated."""
+    """Mark matching tickets as sold and record price + buyer/delivery details."""
     matches = find_matching_tickets(db, sale)
     if not matches:
         log.warning(
@@ -73,15 +73,29 @@ def apply_sale(db: Session, sale: dict) -> int:
     currency = (sale.get("currency") or "GBP").upper()
     per_ticket = round(total / len(matches), 2) if total else None
 
+    # Buyer / delivery info from the sale email (applies to all matched tickets)
+    info = sale.get("sale_info") or {}
+
     for t in matches:
         t.status = "sold"
         if per_ticket is not None:
             t.price_sold_amount = per_ticket
             t.price_sold_currency = currency
+        # Newly-sold tickets default to NOT yet delivered
+        t.delivered = False
+
+        # Only overwrite fields that the email actually populated
+        if info.get("buyer_name"):       t.buyer_name = info["buyer_name"]
+        if info.get("buyer_email"):      t.buyer_email = info["buyer_email"]
+        if info.get("delivery_method"):  t.delivery_method = info["delivery_method"]
+        if info.get("delivery_deadline"): t.delivery_deadline = info["delivery_deadline"]
+        if info.get("order_reference"):  t.order_reference = info["order_reference"]
+        if info.get("platform"):         t.sale_platform = info["platform"]
+        if info.get("delivery_notes"):   t.delivery_notes = info["delivery_notes"]
 
     log.info(
         f"Sale applied to {len(matches)} ticket(s) "
         f"({sale.get('artist')!r} on {sale.get('event_date')}, "
-        f"{currency} {per_ticket} each)"
+        f"{currency} {per_ticket} each, buyer={info.get('buyer_name')!r})"
     )
     return len(matches)

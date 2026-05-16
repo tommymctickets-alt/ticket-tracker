@@ -46,13 +46,32 @@ EXTRACTION_SCHEMA = {
                 "properties": {
                     "seat_number": {
                         "type": ["string", "null"],
-                        "description": "Seat info for this single ticket, e.g. 'Block 102 Row K Seat 12' or 'Standing'.",
+                        "description": "Seat info for this single ticket.",
                     },
                     "notes": {
                         "type": ["string", "null"],
                         "description": "Section, ticket type, or other detail for this single ticket.",
                     },
                 },
+            },
+        },
+        "sale_info": {
+            "type": ["object", "null"],
+            "description": "Only populate for SALE emails. Null for purchases and other.",
+            "properties": {
+                "buyer_name": {"type": ["string", "null"], "description": "Name of the buyer if mentioned."},
+                "buyer_email": {"type": ["string", "null"], "description": "Buyer email if mentioned (for ticket transfer)."},
+                "delivery_method": {
+                    "type": ["string", "null"],
+                    "description": "How tickets must be delivered, e.g. 'Mobile transfer', 'Email PDF', 'Courier', 'Instant download'.",
+                },
+                "delivery_deadline": {
+                    "type": ["string", "null"],
+                    "description": "ISO YYYY-MM-DD by which tickets must be delivered to the buyer.",
+                },
+                "order_reference": {"type": ["string", "null"], "description": "Order ID / transaction ID from the platform."},
+                "platform": {"type": ["string", "null"], "description": "Platform that handled the sale: viagogo, stubhub, twickets, vivid, etc."},
+                "delivery_notes": {"type": ["string", "null"], "description": "Any other delivery instructions from the email."},
             },
         },
     },
@@ -74,6 +93,15 @@ Step 3 — Extract the tickets array:
   - "4 x General Admission" with no seats -> 4 entries with seat_number = "General Admission".
   - 1 ticket -> 1 entry.
   - "other" email -> empty array [].
+
+Step 4 — For SALE emails ONLY, also populate sale_info with:
+  - buyer_name, buyer_email (the person receiving the tickets, if mentioned)
+  - delivery_method (e.g. "Mobile transfer", "Email PDF", "Courier", "Instant download")
+  - delivery_deadline (ISO date by which tickets must be sent)
+  - order_reference (platform's order/transaction ID)
+  - platform (viagogo / stubhub / twickets / etc., based on sender)
+  - delivery_notes (any specific instructions from the email)
+  For purchase and other emails, set sale_info to null.
 
 Output ONLY valid JSON matching this schema (no prose, no markdown fences):
 {schema}

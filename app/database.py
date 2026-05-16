@@ -29,3 +29,6 @@ def init_db():
     # Import models so they register on Base.metadata
     from app import models  # noqa: F401
     Base.metadata.create_all(bind=engine)
+    # Apply column-level migrations for existing deployments
+    from app.migrations import ensure_schema
+    ensure_schema(engine)

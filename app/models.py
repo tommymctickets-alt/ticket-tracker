@@ -1,5 +1,5 @@
 """ORM models."""
-from sqlalchemy import Column, DateTime, Float, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -20,6 +20,16 @@ class Ticket(Base):
     price_bought_currency = Column(String, default="GBP")
     price_sold_amount = Column(Float, nullable=True)
     price_sold_currency = Column(String, default="GBP")
+
+    # Sale & delivery info (populated when a sale email is processed)
+    buyer_name = Column(String, nullable=True)
+    buyer_email = Column(String, nullable=True)
+    delivery_method = Column(String, nullable=True)
+    delivery_deadline = Column(String, nullable=True)  # ISO YYYY-MM-DD
+    order_reference = Column(String, nullable=True)
+    sale_platform = Column(String, nullable=True)  # viagogo, stubhub, twickets, etc.
+    delivery_notes = Column(Text, nullable=True)
+    delivered = Column(Boolean, default=False, nullable=False)
 
     source_email_id = Column(String, nullable=True, unique=True)
     raw_email_subject = Column(String, nullable=True)

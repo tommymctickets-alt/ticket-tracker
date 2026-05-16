@@ -57,6 +57,44 @@
         </select>
     </fieldset>
 
+    <h3 class="section-title">Sale &amp; Delivery</h3>
+    <p class="section-hint">Auto-populated from sale emails. Edit anything that's wrong or missing.</p>
+
+    <label>Buyer name
+        <input type="text" name="buyer_name" value="{{ ticket.buyer_name if ticket and ticket.buyer_name else '' }}">
+    </label>
+
+    <label>Buyer email
+        <input type="email" name="buyer_email" value="{{ ticket.buyer_email if ticket and ticket.buyer_email else '' }}">
+    </label>
+
+    <label>Delivery method
+        <input type="text" name="delivery_method" placeholder="e.g. Mobile transfer, Email PDF, Courier"
+               value="{{ ticket.delivery_method if ticket and ticket.delivery_method else '' }}">
+    </label>
+
+    <label>Deliver by
+        <input type="date" name="delivery_deadline" value="{{ ticket.delivery_deadline if ticket and ticket.delivery_deadline else '' }}">
+    </label>
+
+    <label>Order reference
+        <input type="text" name="order_reference" value="{{ ticket.order_reference if ticket and ticket.order_reference else '' }}">
+    </label>
+
+    <label>Sale platform
+        <input type="text" name="sale_platform" placeholder="e.g. viagogo, stubhub, twickets"
+               value="{{ ticket.sale_platform if ticket and ticket.sale_platform else '' }}">
+    </label>
+
+    <label>Delivery notes
+        <input type="text" name="delivery_notes" value="{{ ticket.delivery_notes if ticket and ticket.delivery_notes else '' }}">
+    </label>
+
+    <label class="checkbox-label">
+        <input type="checkbox" name="delivered" value="1" {% if ticket and ticket.delivered %}checked{% endif %}>
+        Delivered to buyer
+    </label>
+
     <div class="form-actions">
         <button type="submit" class="btn primary">Save</button>
         <a href="/" class="btn">Cancel</a>

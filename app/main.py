@@ -145,6 +145,14 @@ def _ticket_to_view(t: Ticket) -> dict:
             t.price_sold_amount,
             t.price_sold_currency,
         ),
+        "buyer_name": t.buyer_name,
+        "buyer_email": t.buyer_email,
+        "delivery_method": t.delivery_method,
+        "delivery_deadline": t.delivery_deadline,
+        "order_reference": t.order_reference,
+        "sale_platform": t.sale_platform,
+        "delivery_notes": t.delivery_notes,
+        "delivered": bool(t.delivered),
     }
 
 
@@ -182,6 +190,7 @@ def index(
     db: Session = Depends(get_db),
     _user: dict = Depends(require_user),
     status: str = "",
+    pending_delivery: int = 0,
 ):
     all_tickets = (
         db.query(Ticket)
@@ -195,22 +204,40 @@ def index(
         if t.status in counts:
             counts[t.status] += 1
 
-    # Decide which statuses to render
-    if status in STATUS_ORDER:
-        visible_statuses = [status]
-    else:
-        status = ""  # normalise for tab highlight
-        visible_statuses = STATUS_ORDER
+    # Pending-delivery count (sold AND not yet delivered)
+    pending_count = sum(1 for t in all_tickets if t.status == "sold" and not t.delivered)
 
-    groups = []
-    for s in visible_statuses:
-        in_group = [t for t in all_tickets if t.status == s]
-        groups.append({
-            "status": s,
+    # Decide which groups to render
+    if pending_delivery:
+        # Special view: just the pending-delivery sold tickets
+        pending = [t for t in all_tickets if t.status == "sold" and not t.delivered]
+        groups = [{
+            "status": "sold",
+            "tickets": [_ticket_to_view(t) for t in pending],
+            "count": len(pending),
+            **_group_stats(pending),
+            "is_pending_view": True,
+        }]
+        status = ""
+    elif status in STATUS_ORDER:
+        in_group = [t for t in all_tickets if t.status == status]
+        groups = [{
+            "status": status,
             "tickets": [_ticket_to_view(t) for t in in_group],
             "count": len(in_group),
             **_group_stats(in_group),
-        })
+        }]
+    else:
+        status = ""  # normalise for tab highlight
+        groups = []
+        for s in STATUS_ORDER:
+            in_group = [t for t in all_tickets if t.status == s]
+            groups.append({
+                "status": s,
+                "tickets": [_ticket_to_view(t) for t in in_group],
+                "count": len(in_group),
+                **_group_stats(in_group),
+            })
 
     # Top-line summary across all tickets (regardless of filter)
     summary = {
@@ -221,6 +248,7 @@ def index(
         "realized_profit_gbp": _group_stats(
             [t for t in all_tickets if t.status == "sold"]
         )["profit_gbp"],
+        "pending_delivery_count": pending_count,
     }
 
     return render(
@@ -228,6 +256,7 @@ def index(
         groups=groups,
         counts=counts,
         current_filter=status,
+        pending_view=bool(pending_delivery),
         summary=summary,
         status_order=STATUS_ORDER,
     )
@@ -276,6 +305,14 @@ def create_or_update_ticket(
     price_bought_currency: str = Form("GBP"),
     price_sold_amount: str = Form(""),
     price_sold_currency: str = Form("GBP"),
+    buyer_name: str = Form(""),
+    buyer_email: str = Form(""),
+    delivery_method: str = Form(""),
+    delivery_deadline: str = Form(""),
+    order_reference: str = Form(""),
+    sale_platform: str = Form(""),
+    delivery_notes: str = Form(""),
+    delivered: str = Form(""),
 ):
     if id:
         t = db.get(Ticket, int(id))
@@ -295,9 +332,31 @@ def create_or_update_ticket(
     t.price_bought_currency = price_bought_currency
     t.price_sold_amount = _to_float(price_sold_amount)
     t.price_sold_currency = price_sold_currency
+    t.buyer_name = buyer_name.strip() or None
+    t.buyer_email = buyer_email.strip() or None
+    t.delivery_method = delivery_method.strip() or None
+    t.delivery_deadline = delivery_deadline.strip() or None
+    t.order_reference = order_reference.strip() or None
+    t.sale_platform = sale_platform.strip() or None
+    t.delivery_notes = delivery_notes.strip() or None
+    t.delivered = bool(delivered)
 
     db.commit()
     return RedirectResponse("/", status_code=303)
+
+
+@app.post("/tickets/{ticket_id}/deliver")
+def mark_delivered(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_admin),
+):
+    t = db.get(Ticket, ticket_id)
+    if t:
+        t.delivered = True
+        db.commit()
+    # Redirect back to wherever they came from if possible — fall back to pending view
+    return RedirectResponse("/?pending_delivery=1", status_code=303)
 
 
 @app.post("/tickets/{ticket_id}/delete")
