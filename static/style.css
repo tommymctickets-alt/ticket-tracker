@@ -267,52 +267,168 @@ td.actions a:hover { text-decoration: underline; }
     color: white;
 }
 
-/* Buyer / delivery cell */
-.buyer-cell {
-    min-width: 180px;
-    line-height: 1.35;
-    white-space: normal !important;
-}
-.delivery-status {
-    display: inline-block;
-    font-size: 0.78rem;
-    padding: 0.1rem 0.5rem;
+/* Buyer pill button — single tap target per sold row */
+.buyer-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
     border-radius: 999px;
+    font-size: 0.85rem;
     font-weight: 500;
-    margin-bottom: 0.3rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: inherit;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: transform 0.1s, box-shadow 0.15s;
 }
-.delivery-status.pending { background: #fff4d1; color: #8a6300; }
-.delivery-status.delivered { background: #d4edda; color: #155724; }
-.muted-sm {
-    font-size: 0.82rem;
+.buyer-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+.buyer-pill.pending {
+    background: #fff4d1;
+    color: #8a6300;
+    border-color: #e8c969;
+}
+.buyer-pill.delivered {
+    background: #d4edda;
+    color: #155724;
+    border-color: #a3d9b1;
+}
+.buyer-pill.empty {
+    background: var(--bg);
     color: var(--muted);
+    border-color: var(--border);
+    border-style: dashed;
 }
+.buyer-pill.empty:hover { color: var(--accent); border-color: var(--accent); }
 
 /* Highlight rows that need delivery action */
 tr.row-pending td { background: #fffbf0; }
 tr.row-pending:hover td { background: #fff8e6; }
 
-/* Quick "mark delivered" button */
-.btn-tiny {
+/* Delivery status badges (inside dialog header) */
+.delivery-status {
     display: inline-block;
-    padding: 0.25rem 0.6rem;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    border-radius: 5px;
-    text-decoration: none;
     font-size: 0.78rem;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    font-weight: 500;
+}
+.delivery-status.pending { background: #fff4d1; color: #8a6300; }
+.delivery-status.delivered { background: #d4edda; color: #155724; }
+
+/* Buyer details dialog */
+.buyer-dialog {
+    border: none;
+    border-radius: 14px;
+    padding: 0;
+    width: min(440px, 92vw);
+    max-height: 88vh;
+    background: var(--surface);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    overflow: hidden;
+    color: var(--text);
+}
+.buyer-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(2px);
+}
+.buyer-dialog .dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 1.25rem 1.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+.buyer-dialog .dialog-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--text);
+}
+.buyer-dialog .dialog-subtitle {
+    margin-top: 0.4rem;
+}
+.dialog-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--muted);
     cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    margin: -0.4rem -0.5rem 0 0;
 }
-.btn-tiny:hover { background: #f0f0f3; }
-.btn-tiny.primary {
-    background: #155724;
-    color: white;
-    border-color: #155724;
+.dialog-close:hover { background: var(--bg); color: var(--text); }
+
+.buyer-dialog .dialog-body {
+    padding: 0.75rem 1.5rem 0.5rem;
+    overflow-y: auto;
+    max-height: calc(88vh - 150px);
 }
-.btn-tiny.primary:hover { background: #0d3a18; }
+.dialog-section {
+    margin-bottom: 1rem;
+}
+.dialog-section h4 {
+    margin: 0 0 0.4rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+}
+.dialog-section dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 0.4rem 1rem;
+    font-size: 0.92rem;
+}
+.dialog-section dt {
+    color: var(--muted);
+    font-weight: 400;
+}
+.dialog-section dd {
+    margin: 0;
+    color: var(--text);
+    word-break: break-word;
+}
+.dialog-section dd a { color: var(--accent); text-decoration: none; }
+.dialog-section dd a:hover { text-decoration: underline; }
+.dialog-section dd code {
+    font-family: monospace;
+    font-size: 0.85em;
+    background: var(--bg);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+}
+
+.buyer-dialog .dialog-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem 1.25rem;
+    border-top: 1px solid var(--border);
+    background: #fafafa;
+    align-items: center;
+}
+.buyer-dialog .dialog-actions > form:last-child { margin-left: auto; }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn.ghost:hover { background: var(--bg); color: var(--text); }
+
+@media (max-width: 600px) {
+    .dialog-section dl {
+        grid-template-columns: 1fr;
+        gap: 0.1rem 0;
+    }
+    .dialog-section dt { font-size: 0.75rem; }
+    .dialog-section dd { margin-bottom: 0.4rem; }
+}
 
 /* Section title inside the edit form */
 .section-title {
