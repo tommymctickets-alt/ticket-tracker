@@ -12,7 +12,7 @@
 </div>
 
 {% if summary.pending_delivery_count > 0 and not pending_view %}
-<a href="/?pending_delivery=1" class="action-banner">
+<a href="{{ tab_urls.pending_delivery }}" class="action-banner">
     <span class="action-banner-icon">📦</span>
     <span>
         <strong>{{ summary.pending_delivery_count }} ticket{% if summary.pending_delivery_count != 1 %}s{% endif %}</strong>
@@ -23,20 +23,43 @@
 {% endif %}
 
 <nav class="tabs">
-    <a href="/" class="tab {% if not current_filter and not pending_view %}active{% endif %}">
+    <a href="{{ tab_urls.all }}" class="tab {% if not current_filter and not pending_view %}active{% endif %}">
         All <span class="tab-count">{{ summary.total_tickets }}</span>
     </a>
-    {% if summary.pending_delivery_count > 0 or pending_view %}
-        <a href="/?pending_delivery=1" class="tab tab-pending {% if pending_view %}active{% endif %}">
+    {% if 'pending_delivery' in tab_urls %}
+        <a href="{{ tab_urls.pending_delivery }}" class="tab tab-pending {% if pending_view %}active{% endif %}">
             Pending Delivery <span class="tab-count">{{ summary.pending_delivery_count }}</span>
         </a>
     {% endif %}
     {% for s in status_order %}
-        <a href="/?status={{ s }}" class="tab status-{{ s }} {% if current_filter == s %}active{% endif %}">
+        <a href="{{ tab_urls[s] }}" class="tab status-{{ s }} {% if current_filter == s %}active{% endif %}">
             {{ s|capitalize }} <span class="tab-count">{{ counts[s] }}</span>
         </a>
     {% endfor %}
 </nav>
+
+{% if active_platform or active_ticket_type %}
+<div class="filter-chips">
+    <span class="filter-chips-label">Filtering by:</span>
+    {% if active_platform %}
+    <a href="{{ remove_filter_urls.platform }}" class="filter-chip">
+        Platform: <strong>{{ active_platform }}</strong> <span class="chip-x">×</span>
+    </a>
+    {% endif %}
+    {% if active_ticket_type %}
+    <a href="{{ remove_filter_urls.ticket_type }}" class="filter-chip">
+        Format: <strong>{{ active_ticket_type }}</strong> <span class="chip-x">×</span>
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% macro sort_header(label, col) %}
+    <a href="{{ sort_urls[col] }}" class="sort-link {% if current_sort == col %}active{% endif %}">
+        {{ label }}
+        {% if current_sort == col %}<span class="sort-arrow">{{ '↑' if current_order == 'asc' else '↓' }}</span>{% endif %}
+    </a>
+{% endmacro %}
 
 {% set rendered = namespace(any=false) %}
 {% set sold_for_modal = namespace(items=[]) %}
@@ -70,13 +93,15 @@
         <table class="tickets">
             <thead>
                 <tr>
-                    <th>Artist</th>
+                    <th>{{ sort_header('Artist', 'artist') }}</th>
                     <th>Location</th>
                     <th>Notes</th>
-                    <th>Seat / Source</th>
-                    <th>Date</th>
-                    <th>Bought</th>
-                    <th>Sold</th>
+                    <th>Seat</th>
+                    <th>{{ sort_header('Date', 'event_date') }}</th>
+                    <th>{{ sort_header('Platform', 'purchase_platform') }}</th>
+                    <th>{{ sort_header('Format', 'ticket_type') }}</th>
+                    <th>{{ sort_header('Bought', 'price_bought_amount') }}</th>
+                    <th>{{ sort_header('Sold', 'price_sold_amount') }}</th>
                     <th>Profit (GBP)</th>
                     {% if group.status == 'sold' %}<th>Buyer</th>{% endif %}
                     {% if user.role == 'admin' %}<th></th>{% endif %}
@@ -88,23 +113,32 @@
                     <td><strong>{{ t.artist }}</strong></td>
                     <td>{{ t.location or '—' }}</td>
                     <td>{{ t.notes or '—' }}</td>
-                    <td class="seat-cell">
-                        <div>{{ t.seat_number or '—' }}</div>
-                        {% if t.purchase_platform or t.ticket_type %}
-                        <div class="source-line">
-                            {% if t.purchase_platform %}<span class="source-platform">{{ t.purchase_platform }}</span>{% endif %}
-                            {% if t.ticket_type %}<span class="source-type">{{ t.ticket_type }}</span>{% endif %}
-                        </div>
-                        {% endif %}
-                    </td>
+                    <td>{{ t.seat_number or '—' }}</td>
                     <td>{{ t.event_date or '—' }}</td>
+                    <td>
+                        {% if t.purchase_platform %}
+                            <a href="{{ cell_filter_url('platform', t.purchase_platform) }}"
+                               class="cell-filter source-platform {% if active_platform == t.purchase_platform %}active{% endif %}"
+                               title="{% if active_platform == t.purchase_platform %}Clear filter{% else %}Filter to {{ t.purchase_platform }}{% endif %}">
+                                {{ t.purchase_platform }}
+                            </a>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if t.ticket_type %}
+                            <a href="{{ cell_filter_url('ticket_type', t.ticket_type) }}"
+                               class="cell-filter source-type {% if active_ticket_type == t.ticket_type %}active{% endif %}"
+                               title="{% if active_ticket_type == t.ticket_type %}Clear filter{% else %}Filter to {{ t.ticket_type }}{% endif %}">
+                                {{ t.ticket_type }}
+                            </a>
+                        {% else %}—{% endif %}
+                    </td>
                     <td>{% if t.price_bought_amount is not none %}{{ t.price_bought_currency }} {{ '%.2f' % t.price_bought_amount }}{% else %}—{% endif %}</td>
                     <td>{% if t.price_sold_amount is not none %}{{ t.price_sold_currency }} {{ '%.2f' % t.price_sold_amount }}{% else %}—{% endif %}</td>
                     <td>{% if t.profit_gbp is not none %}<span class="{% if t.profit_gbp >= 0 %}pos{% else %}neg{% endif %}">£{{ '%.2f' % t.profit_gbp }}</span>{% else %}—{% endif %}</td>
 
                     {% if group.status == 'sold' %}
                     <td>
-                        {# Always show the pill button for sold tickets — the modal handles empty state #}
                         {% set _ = sold_for_modal.items.append(t) %}
                         <button type="button"
                                 class="buyer-pill {% if t.delivered %}delivered{% else %}pending{% endif %}"
@@ -134,7 +168,9 @@
 
 {% if not rendered.any %}
 <p class="empty">
-{% if pending_view %}
+{% if active_platform or active_ticket_type %}
+    No tickets match the current filters. <a href="/">Clear filters</a>.
+{% elif pending_view %}
     Nothing pending delivery — you're all caught up. <a href="/">View all tickets</a>.
 {% elif summary.total_tickets == 0 %}
     {% if user.role == 'admin' %}

@@ -430,31 +430,107 @@ tr.row-pending:hover td { background: #fff8e6; }
     .dialog-section dd { margin-bottom: 0.4rem; }
 }
 
-/* Compact source/format badges below seat number */
-.seat-cell { line-height: 1.3; white-space: normal !important; min-width: 140px; }
-.source-line {
+/* Sortable column headers */
+.sort-link {
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: color 0.15s;
+}
+.sort-link:hover { color: var(--text); }
+.sort-link.active { color: var(--accent); }
+.sort-arrow { font-size: 0.9em; line-height: 1; }
+
+/* Active filter chips bar */
+.filter-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.3rem;
-    margin-top: 0.25rem;
+    gap: 0.5rem;
+    align-items: center;
+    background: #fff8e6;
+    border: 1px solid #ffd87a;
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+    margin-bottom: 1rem;
 }
-.source-platform, .source-type {
+.filter-chips-label {
+    font-size: 0.82rem;
+    color: #8a6300;
+    font-weight: 500;
+}
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: white;
+    border: 1px solid #e8c969;
+    color: #5c4a00;
+    padding: 0.2rem 0.6rem 0.2rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: background 0.15s;
+}
+.filter-chip:hover { background: #fff4d1; }
+.filter-chip strong { font-weight: 600; }
+.chip-x {
+    background: #d4a017;
+    color: white;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+/* Click-to-filter cell links (platform & format columns) */
+.cell-filter {
     display: inline-block;
-    font-size: 0.72rem;
-    padding: 0.05rem 0.45rem;
+    font-size: 0.78rem;
+    padding: 0.1rem 0.55rem;
     border-radius: 4px;
     text-transform: lowercase;
-    line-height: 1.5;
+    line-height: 1.6;
+    text-decoration: none;
+    transition: background 0.15s, transform 0.1s;
+    border: 1px solid transparent;
 }
-.source-platform {
+.cell-filter:hover {
+    transform: translateY(-1px);
+    filter: brightness(0.95);
+}
+.cell-filter.source-platform {
     background: #e8f0ff;
     color: #0a4abf;
     font-weight: 500;
 }
-.source-type {
+.cell-filter.source-platform.active {
+    background: #0a4abf;
+    color: white;
+    border-color: #0a4abf;
+}
+.cell-filter.source-type {
     background: #f3e8ff;
     color: #6b21a8;
 }
+.cell-filter.source-type.active {
+    background: #6b21a8;
+    color: white;
+    border-color: #6b21a8;
+}
+
+/* Make headers narrower since they have more columns now */
+table.tickets th { padding: 0.65rem 0.7rem; }
+table.tickets td { padding: 0.65rem 0.7rem; }
 
 /* Dialog empty state */
 .dialog-empty {

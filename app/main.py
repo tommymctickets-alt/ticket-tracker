@@ -187,6 +187,35 @@ def _group_stats(tickets) -> dict:
     }
 
 
+SORT_COLUMNS = {
+    "artist": Ticket.artist,
+    "event_date": Ticket.event_date,
+    "price_bought_amount": Ticket.price_bought_amount,
+    "price_sold_amount": Ticket.price_sold_amount,
+    "purchase_platform": Ticket.purchase_platform,
+    "ticket_type": Ticket.ticket_type,
+}
+
+
+def _filter_url(params: dict, **overrides) -> str:
+    """Build a /?... URL by merging params with overrides. None/empty drops the key."""
+    from urllib.parse import urlencode
+    p = dict(params)
+    for k, v in overrides.items():
+        if v in (None, "", 0, "0"):
+            p.pop(k, None)
+        else:
+            p[k] = v
+    # Drop the default sort (cleaner URLs)
+    if p.get("sort") == "event_date" and p.get("order") == "desc":
+        p.pop("sort", None)
+        p.pop("order", None)
+    p = {k: str(v) for k, v in p.items() if v not in (None, "", 0, "0")}
+    if not p:
+        return "/"
+    return "/?" + urlencode(p)
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(
     request: Request,
@@ -194,25 +223,39 @@ def index(
     _user: dict = Depends(require_user),
     status: str = "",
     pending_delivery: int = 0,
+    platform: str = "",
+    ticket_type: str = "",
+    sort: str = "event_date",
+    order: str = "desc",
 ):
-    all_tickets = (
-        db.query(Ticket)
-        .order_by(Ticket.event_date.desc().nullslast(), Ticket.id.desc())
-        .all()
-    )
+    # Validate sort + order
+    if sort not in SORT_COLUMNS:
+        sort = "event_date"
+    if order not in ("asc", "desc"):
+        order = "desc"
 
-    # Counts per status (for tab badges) — over ALL tickets, not just visible
+    sort_col = SORT_COLUMNS[sort]
+    sort_expr = sort_col.desc().nullslast() if order == "desc" else sort_col.asc().nullsfirst()
+
+    # Apply column filters (platform / ticket_type) — these affect all visible groups
+    q = db.query(Ticket)
+    if platform:
+        q = q.filter(Ticket.purchase_platform == platform.lower())
+    if ticket_type:
+        q = q.filter(Ticket.ticket_type == ticket_type.lower())
+    q = q.order_by(sort_expr, Ticket.id.desc())
+    all_tickets = q.all()
+
+    # Counts per status (reflect current platform/type filters)
     counts = {s: 0 for s in STATUS_ORDER}
     for t in all_tickets:
         if t.status in counts:
             counts[t.status] += 1
 
-    # Pending-delivery count (sold AND not yet delivered)
     pending_count = sum(1 for t in all_tickets if t.status == "sold" and not t.delivered)
 
     # Decide which groups to render
     if pending_delivery:
-        # Special view: just the pending-delivery sold tickets
         pending = [t for t in all_tickets if t.status == "sold" and not t.delivered]
         groups = [{
             "status": "sold",
@@ -231,7 +274,7 @@ def index(
             **_group_stats(in_group),
         }]
     else:
-        status = ""  # normalise for tab highlight
+        status = ""
         groups = []
         for s in STATUS_ORDER:
             in_group = [t for t in all_tickets if t.status == s]
@@ -242,17 +285,57 @@ def index(
                 **_group_stats(in_group),
             })
 
-    # Top-line summary across all tickets (regardless of filter)
+    # Top-line summary uses ALL tickets (not filtered) so the numbers don't change as you filter
+    all_unfiltered = db.query(Ticket).all()
     summary = {
-        "total_tickets": len(all_tickets),
+        "total_tickets": len(all_unfiltered),
         "outstanding_gbp": _group_stats(
-            [t for t in all_tickets if t.status in ("bought", "listed")]
+            [t for t in all_unfiltered if t.status in ("bought", "listed")]
         )["invested_gbp"],
         "realized_profit_gbp": _group_stats(
-            [t for t in all_tickets if t.status == "sold"]
+            [t for t in all_unfiltered if t.status == "sold"]
         )["profit_gbp"],
-        "pending_delivery_count": pending_count,
+        "pending_delivery_count": sum(
+            1 for t in all_unfiltered if t.status == "sold" and not t.delivered
+        ),
     }
+
+    # Build URLs (in Python; templates just use them)
+    current_params = {
+        "status": status, "pending_delivery": pending_delivery,
+        "platform": platform, "ticket_type": ticket_type,
+        "sort": sort, "order": order,
+    }
+
+    def _sort_url(col):
+        new_order = "asc" if (sort != col or order == "desc") else "desc"
+        return _filter_url(current_params, sort=col, order=new_order)
+
+    sort_urls = {col: _sort_url(col) for col in SORT_COLUMNS}
+
+    tab_urls = {
+        "all": _filter_url(current_params, status=None, pending_delivery=None),
+    }
+    if pending_count > 0 or pending_delivery:
+        tab_urls["pending_delivery"] = _filter_url(
+            current_params, status=None, pending_delivery=1
+        )
+    for s in STATUS_ORDER:
+        tab_urls[s] = _filter_url(current_params, status=s, pending_delivery=None)
+
+    remove_filter_urls = {
+        "platform": _filter_url(current_params, platform=None),
+        "ticket_type": _filter_url(current_params, ticket_type=None),
+    }
+
+    def _cell_filter_url(field, value):
+        if not value:
+            return None
+        # Toggle: clicking the same value removes the filter
+        current_value = platform if field == "platform" else ticket_type
+        if current_value == value:
+            return _filter_url(current_params, **{field: None})
+        return _filter_url(current_params, **{field: value})
 
     return render(
         "index.html", request,
@@ -262,6 +345,14 @@ def index(
         pending_view=bool(pending_delivery),
         summary=summary,
         status_order=STATUS_ORDER,
+        current_sort=sort,
+        current_order=order,
+        sort_urls=sort_urls,
+        tab_urls=tab_urls,
+        active_platform=platform,
+        active_ticket_type=ticket_type,
+        remove_filter_urls=remove_filter_urls,
+        cell_filter_url=_cell_filter_url,
     )
 
 
