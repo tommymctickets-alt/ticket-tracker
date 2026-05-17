@@ -109,12 +109,26 @@ Step 3 — For PURCHASE emails, also identify:
   - ticket_type: lowercase format word — 'mobile' / 'pdf' / 'paper' / 'e-ticket' / 'will call' / 'wristband'.
     Clues: "Add to Wallet" / "in your app" => mobile. "Print at home" / "PDF attached" => pdf. "Mailed" / "Royal Mail" => paper.
 
-Step 4 — Extract the tickets array:
-  Output one entry for EACH individual ticket.
-  - 4 specific seats listed -> 4 entries, one per seat.
-  - "4 x General Admission" with no seats -> 4 entries with seat_number = "General Admission".
-  - 1 ticket -> 1 entry.
-  - "other" email -> empty array [].
+Step 4 — Extract the tickets array. THIS IS CRITICAL — read carefully:
+
+  You MUST output ONE entry per INDIVIDUAL ticket. Never combine. Never abbreviate. Never use ranges.
+
+  ⚠️ SEAT RANGES MUST BE EXPANDED. If the email mentions ANY range (like "Seats 1-4", "Seats A12 to A15", "Row B, Seats 12 through 16"), you MUST expand into individual entries — one for EACH integer seat in the range, INCLUDING the middle ones. A range "1-4" means FOUR seats: 1, 2, 3, AND 4. Do not output only the endpoints.
+
+  Examples of correct expansion:
+    "Seats: A12, A13, A14, A15"           → 4 entries: A12, A13, A14, A15
+    "Seats 1-4 in Row B"                  → 4 entries: "Row B Seat 1", "Row B Seat 2", "Row B Seat 3", "Row B Seat 4"
+    "Block 102 Row K Seats 12-15"         → 4 entries: "Block 102 Row K Seat 12", "Block 102 Row K Seat 13", "Block 102 Row K Seat 14", "Block 102 Row K Seat 15"
+    "U24 N 255 to 256"                    → 2 entries: "U24 N 255", "U24 N 256"
+    "U24 O Row M Seats 8 through 12"      → 5 entries: 8, 9, 10, 11, 12
+    "Quantity: 6 (General Admission)"     → 6 entries, all with seat_number "General Admission"
+    "1 ticket: Row F Seat 8"              → 1 entry: "Row F Seat 8"
+    "other" / non-ticket email             → empty array []
+
+  COUNT CHECK before answering:
+    1. Look for an explicit ticket COUNT in the email (e.g. "4 tickets", "Quantity: 4", "2 x adult").
+    2. The tickets array MUST have exactly that many entries.
+    3. If you wrote fewer entries than the stated count, you MISSED seats — go back and expand the range.
 
 Step 5 — For SALE emails ONLY, populate sale_info:
   - buyer_name, buyer_email, buyer_phone (look hard — phone is often a long digit string near the name)

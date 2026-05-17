@@ -99,8 +99,11 @@ def _create_purchase(db, extracted: dict, message_id: str, subject: str) -> int:
     return len(items)
 
 
-def poll_inbox() -> int:
-    """Check inbox for new emails; return the number of *new tickets created*."""
+def poll_inbox(force: bool = False) -> int:
+    """Check inbox for new emails; return the number of *new tickets created*.
+
+    If force=True, re-parse emails even if they're already in processed_emails.
+    """
     host = os.getenv("IMAP_HOST", "imap.gmail.com")
     user = os.getenv("IMAP_USER")
     password = os.getenv("IMAP_PASSWORD")
@@ -124,7 +127,7 @@ def poll_inbox() -> int:
         if not ids:
             log.info("Inbox poll: no new mail")
             return 0
-        log.info(f"Inbox poll: {len(ids)} new email(s)")
+        log.info(f"Inbox poll: {len(ids)} new email(s){' (FORCE)' if force else ''}")
 
         db = SessionLocal()
         try:
@@ -132,14 +135,19 @@ def poll_inbox() -> int:
                 _, msg_data = m.fetch(msg_id, "(RFC822)")
                 raw = msg_data[0][1]
                 msg = email.message_from_bytes(raw)
-
-                message_id = msg.get("Message-ID") or f"local-{msg_id.decode()}"
-                if db.query(ProcessedEmail).filter_by(message_id=message_id).first():
-                    continue
-
                 subject = _decode_header(msg.get("Subject", ""))
+                message_id = msg.get("Message-ID") or f"local-{msg_id.decode()}"
+
+                existing = db.query(ProcessedEmail).filter_by(message_id=message_id).first()
+                if existing and not force:
+                    log.info(f"  -> skipping (already processed): {subject[:80]}")
+                    continue
+                if existing and force:
+                    log.info(f"Reprocessing: {subject[:80]}")
+                else:
+                    log.info(f"Parsing: {subject[:80]}")
+
                 body = _get_body(msg)
-                log.info(f"Parsing: {subject[:80]}")
 
                 try:
                     extracted = extract_email(subject, body)
@@ -159,7 +167,9 @@ def poll_inbox() -> int:
                 else:
                     log.info("  -> not a ticket email")
 
-                db.add(ProcessedEmail(message_id=message_id))
+                # Record processing (insert new or leave existing in place)
+                if not existing:
+                    db.add(ProcessedEmail(message_id=message_id))
                 db.commit()
         finally:
             db.close()

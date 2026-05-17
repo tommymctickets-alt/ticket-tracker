@@ -25,7 +25,7 @@ from app.auth import (
 from app.currency import compute_profit_gbp
 from app.database import get_db, init_db
 from app.email_poller import poll_inbox
-from app.models import Ticket
+from app.models import ProcessedEmail, Ticket
 
 load_dotenv()
 logging.basicConfig(
@@ -487,6 +487,93 @@ def create_or_update_ticket(
     return RedirectResponse("/", status_code=303)
 
 
+@app.get("/tickets/paste", response_class=HTMLResponse)
+def paste_form(request: Request, _user: dict = Depends(require_admin)):
+    return render("paste.html", request, result=None, last_subject="", last_body="")
+
+
+@app.post("/tickets/paste")
+async def paste_submit(
+    request: Request,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_admin),
+):
+    import uuid
+    from fastapi import UploadFile
+    from app.parser import extract_email
+    from app.matcher import apply_sale
+    from app.email_poller import _create_purchase
+
+    # FastAPI's Form() doesn't play well with optional file uploads — read manually
+    form = await request.form()
+    subject = (form.get("subject") or "").strip()
+    body = (form.get("body") or "").strip()
+    uploaded: UploadFile | None = form.get("pdf_file") or None
+
+    # If a PDF was uploaded, extract its text and use that as the body
+    pdf_error = None
+    if uploaded and getattr(uploaded, "filename", None):
+        try:
+            from pypdf import PdfReader
+            import io as _io
+            data = await uploaded.read()
+            if data:
+                reader = PdfReader(_io.BytesIO(data))
+                extracted_text = "\n\n".join(
+                    (p.extract_text() or "") for p in reader.pages
+                ).strip()
+                if extracted_text:
+                    body = (body + "\n\n" + extracted_text) if body else extracted_text
+                    if not subject:
+                        subject = uploaded.filename
+                else:
+                    pdf_error = "Couldn't read text from that PDF (it may be a scanned image — try copy-pasting instead)."
+        except Exception as e:
+            log.exception("PDF read failed")
+            pdf_error = f"PDF read failed: {e}"
+
+    if pdf_error and not body:
+        return render("paste.html", request,
+                      result={"error": pdf_error},
+                      last_subject=subject, last_body="")
+
+    if not body:
+        return render("paste.html", request,
+                      result={"error": "Please paste some content or upload a PDF."},
+                      last_subject=subject, last_body="")
+
+    try:
+        extracted = extract_email(subject or "(pasted content)", body)
+    except Exception as e:
+        log.exception("Paste parser failed")
+        return render("paste.html", request,
+                      result={"error": f"Parser error: {e}"},
+                      last_subject=subject, last_body=body)
+
+    result: dict = {}
+    if not extracted:
+        result = {"error": "Couldn't parse the content. Try cleaner input or paste the full email."}
+    elif extracted.get("email_type") == "purchase":
+        message_id = f"paste-{uuid.uuid4()}"
+        n = _create_purchase(db, extracted, message_id, subject or "(pasted)")
+        db.add(ProcessedEmail(message_id=message_id))
+        db.commit()
+        result = {"type": "purchase", "count": n, "extracted": extracted}
+    elif extracted.get("email_type") == "sale":
+        n = apply_sale(db, extracted)
+        db.commit()
+        result = {"type": "sale", "count": n, "extracted": extracted}
+    else:
+        result = {"error": "The content was not recognized as a ticket purchase or sale email."}
+
+    # On success, clear the form; on error keep the input so they can edit
+    if "error" in result:
+        return render("paste.html", request, result=result,
+                      last_subject=subject, last_body=body)
+    return render("paste.html", request, result=result,
+                  last_subject="", last_body="")
+
+
 @app.post("/tickets/{ticket_id}/paid_by")
 def set_paid_by(
     ticket_id: int,
@@ -523,6 +610,47 @@ def mark_delivered(
     return RedirectResponse("/?pending_delivery=1", status_code=303)
 
 
+@app.post("/tickets/{ticket_id}/duplicate")
+def duplicate_ticket(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_admin),
+):
+    t = db.get(Ticket, ticket_id)
+    if not t:
+        raise HTTPException(404)
+    new = Ticket(
+        artist=t.artist,
+        location=t.location,
+        notes=t.notes,
+        seat_number=t.seat_number,
+        event_date=t.event_date,
+        status=t.status,
+        price_bought_amount=t.price_bought_amount,
+        price_bought_currency=t.price_bought_currency,
+        price_sold_amount=t.price_sold_amount,
+        price_sold_currency=t.price_sold_currency,
+        purchase_platform=t.purchase_platform,
+        ticket_type=t.ticket_type,
+        paid_by=t.paid_by,
+        buyer_name=t.buyer_name,
+        buyer_email=t.buyer_email,
+        buyer_phone=t.buyer_phone,
+        delivery_method=t.delivery_method,
+        delivery_deadline=t.delivery_deadline,
+        order_reference=t.order_reference,
+        sale_platform=t.sale_platform,
+        delivery_notes=t.delivery_notes,
+        delivered=t.delivered,
+        raw_email_subject=t.raw_email_subject,
+        # source_email_id deliberately left null — must be unique
+    )
+    db.add(new)
+    db.commit()
+    # Land the user on the edit form for the new row so they can adjust the seat
+    return RedirectResponse(f"/tickets/{new.id}/edit", status_code=303)
+
+
 @app.post("/tickets/{ticket_id}/delete")
 def delete_ticket(
     ticket_id: int,
@@ -537,8 +665,8 @@ def delete_ticket(
 
 
 @app.post("/poll")
-def trigger_poll(_user: dict = Depends(require_admin)):
-    poll_inbox()
+def trigger_poll(force: int = 0, _user: dict = Depends(require_admin)):
+    poll_inbox(force=bool(force))
     return RedirectResponse("/", status_code=303)
 
 

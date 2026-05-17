@@ -67,6 +67,7 @@ h2 { margin-top: 0; }
     font: inherit;
     text-decoration: underline;
 }
+.link-btn.link-btn-soft { color: var(--accent); }
 
 .summary {
     background: var(--surface);
@@ -649,6 +650,67 @@ tr.row-pending:hover td { background: #fff8e6; }
 /* For viewers (non-admin), the indicator is a static span — no hover effect */
 span.paid-btn { cursor: default; }
 span.paid-btn:hover { transform: none; }
+
+/* Notes column — keep it narrow with truncation so it doesn't dominate */
+.notes-cell {
+    max-width: 280px;
+    white-space: normal !important;
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.35;
+}
+
+/* Paste form */
+.paste-form textarea {
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    resize: vertical;
+    background: white;
+    color: var(--text);
+}
+.paste-form textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+}
+.file-input-label input[type="file"] {
+    margin-top: 0.4rem;
+    font-size: 0.9rem;
+}
+.file-input-label .muted-sm { display: block; margin-top: 0.3rem; }
+
+/* Paste result messages */
+.paste-result {
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid;
+}
+.paste-result strong { display: block; margin-bottom: 0.3rem; font-size: 1rem; }
+.paste-result p { margin: 0.25rem 0; }
+.paste-result.success {
+    background: #d4edda;
+    border-color: #a3d9b1;
+    color: #155724;
+}
+.paste-result.success strong { color: #0d3a18; }
+.paste-result.error {
+    background: #fde2e2;
+    border-color: #f5b5b5;
+    color: #a3201a;
+}
+.paste-result.error strong { color: #6b1410; }
+.paste-result.warning {
+    background: #fff4d1;
+    border-color: #e8c969;
+    color: #5c4a00;
+}
+.paste-result.warning strong { color: #5c4a00; }
 
 /* Segmented control for "Paid by" toggle in edit form */
 .segmented {

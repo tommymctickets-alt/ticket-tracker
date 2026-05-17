@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Paste email or upload PDF</h2>
+<p class="section-hint">
+    Paste the contents of a booking confirmation, transfer, or resale email below — or upload a PDF and we'll extract the text.
+    The parser figures out whether it's a purchase or a sale and creates/updates tickets automatically.
+</p>
+
+{% if result %}
+    {% if result.error %}
+    <div class="paste-result error">
+        <strong>Couldn't process this.</strong>
+        <p>{{ result.error }}</p>
+    </div>
+    {% elif result.type == 'purchase' %}
+    <div class="paste-result success">
+        <strong>✓ Created {{ result.count }} ticket{% if result.count != 1 %}s{% endif %}</strong>
+        <p>
+            {% if result.extracted.artist %}{{ result.extracted.artist }}{% endif %}
+            {% if result.extracted.event_date %} · {{ result.extracted.event_date }}{% endif %}
+            {% if result.extracted.location %} · {{ result.extracted.location }}{% endif %}
+        </p>
+        <p><a href="/" class="btn primary">View tickets</a></p>
+    </div>
+    {% elif result.type == 'sale' %}
+        {% if result.count > 0 %}
+        <div class="paste-result success">
+            <strong>✓ Marked {{ result.count }} ticket{% if result.count != 1 %}s{% endif %} as sold</strong>
+            <p>Sale matched against existing rows for {{ result.extracted.artist }}{% if result.extracted.event_date %} on {{ result.extracted.event_date }}{% endif %}.</p>
+            <p><a href="/" class="btn primary">View tickets</a></p>
+        </div>
+        {% else %}
+        <div class="paste-result warning">
+            <strong>Sale recognised, but no matching tickets in your list yet.</strong>
+            <p>{{ result.extracted.artist or 'Unknown artist' }}{% if result.extracted.event_date %} on {{ result.extracted.event_date }}{% endif %} didn't match anything currently <em>bought</em> or <em>listed</em>. If the purchase email arrives later, paste it next and forward the sale email again or use "Force reprocess".</p>
+        </div>
+        {% endif %}
+    {% endif %}
+{% endif %}
+
+<form method="post" action="/tickets/paste" enctype="multipart/form-data" class="ticket-form paste-form">
+    <label>Subject (optional)
+        <input type="text" name="subject" placeholder="e.g. Your Coldplay tickets are confirmed"
+               value="{{ last_subject or '' }}">
+    </label>
+
+    <label>Email body or pasted content
+        <textarea name="body" rows="14" placeholder="Paste here — the entire email body, or text copied from a PDF…">{{ last_body or '' }}</textarea>
+    </label>
+
+    <label class="file-input-label">
+        Or upload a PDF
+        <input type="file" name="pdf_file" accept=".pdf,application/pdf">
+        <span class="muted-sm">We'll extract the text and parse it. Use copy-paste instead for scanned/image-based PDFs.</span>
+    </label>
+
+    <div class="form-actions">
+        <button type="submit" class="btn primary">Process</button>
+        <a href="/" class="btn">Cancel</a>
+    </div>
+</form>
+
+{% endblock %}

@@ -116,7 +116,6 @@
                     <th class="paid-col">Paid</th>
                     <th>{{ sort_header('Artist', 'artist') }}</th>
                     <th>Location</th>
-                    <th>Notes</th>
                     <th>Seat</th>
                     <th>{{ sort_header('Date', 'event_date') }}</th>
                     <th>{{ sort_header('Platform', 'purchase_platform') }}</th>
@@ -125,6 +124,7 @@
                     <th>{{ sort_header('Sold', 'price_sold_amount') }}</th>
                     <th>Profit (GBP)</th>
                     {% if group.status == 'sold' %}<th>Buyer</th>{% endif %}
+                    <th>Notes</th>
                     {% if user.role == 'admin' %}<th></th>{% endif %}
                 </tr>
             </thead>
@@ -150,7 +150,6 @@
                     </td>
                     <td><strong>{{ t.artist }}</strong></td>
                     <td>{{ t.location or '—' }}</td>
-                    <td>{{ t.notes or '—' }}</td>
                     <td>{{ t.seat_number or '—' }}</td>
                     <td>{{ t.event_date or '—' }}</td>
                     <td>
@@ -187,9 +186,14 @@
                     </td>
                     {% endif %}
 
+                    <td class="notes-cell">{{ t.notes or '—' }}</td>
+
                     {% if user.role == 'admin' %}
                     <td class="actions">
                         <a href="/tickets/{{ t.id }}/edit">Edit</a>
+                        <form method="post" action="/tickets/{{ t.id }}/duplicate" class="inline">
+                            <button class="link-btn link-btn-soft" title="Create a copy of this ticket">Duplicate</button>
+                        </form>
                         <form method="post" action="/tickets/{{ t.id }}/delete" class="inline" onsubmit="return confirm('Delete this ticket?')">
                             <button class="link-btn">Delete</button>
                         </form>
